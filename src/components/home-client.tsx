@@ -19,7 +19,7 @@ function ThumbnailItem({
   return (
     <button
       onClick={onClick}
-      className={`flex-none w-20 sm:w-24 md:w-28 overflow-hidden rounded-none transition-all duration-300 ${
+      className={`flex-none w-14 sm:w-16 md:w-20 overflow-hidden rounded-none transition-all duration-300 ${
         isSelected
           ? 'opacity-100 scale-[1.02]'
           : 'opacity-30 hover:opacity-70'
@@ -185,7 +185,7 @@ export function Lightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header: title + close (Fixed top section) */}
-        <div className="flex-none w-full flex items-baseline justify-between px-4 sm:px-6 md:px-8 mb-12">
+        <div className="flex-none w-full flex items-baseline justify-between px-4 sm:px-6 md:px-8 mb-4">
           <div>
             <h2 className="font-serif text-xl md:text-2xl text-foreground/90 italic tracking-tight">
               {project.title}
@@ -205,15 +205,15 @@ export function Lightbox({
         </div>
 
         {/* Main image container with Shimmer loader */}
-        <div className="flex-1 min-h-0 w-full flex items-center justify-center py-6 my-2 relative">
+        <div className="flex-1 min-h-0 w-full flex items-center justify-center py-2 my-1 relative">
           {!mainLoaded && (
-            <div className="w-[82%] h-[78%] aspect-[3/2] shimmer rounded-none" />
+            <div className="w-[95%] h-[95%] aspect-[3/2] shimmer rounded-none" />
           )}
           <img
             key={mainIndex}
             src={images[mainIndex].src}
             alt={images[mainIndex].alt}
-            className={`max-w-[82%] max-h-[78%] w-auto h-auto object-contain rounded-none image-blink transition-opacity duration-300 ${
+            className={`max-w-[95%] max-h-[95%] w-auto h-auto object-contain rounded-none image-blink transition-opacity duration-300 ${
               mainLoaded ? 'opacity-100' : 'opacity-0 absolute'
             }`}
             onLoad={() => setMainLoaded(true)}
