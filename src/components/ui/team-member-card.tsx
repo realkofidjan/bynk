@@ -85,7 +85,7 @@ export default function TeamMemberCard({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            'relative left-0 md:-left-12 z-2 flex w-full md:w-[calc(100%-460px)] flex-col gap-6 md:gap-16',
+            'relative left-0 md:-left-12 z-2 flex w-full max-w-[320px] sm:max-w-[400px] md:max-w-none md:w-[calc(100%-460px)] flex-col gap-6 md:gap-16',
             isPositionRight && 'md:left-12 items-start md:items-end'
           )}
         >
@@ -99,7 +99,19 @@ export default function TeamMemberCard({
           </div>
 
           {/* Details row — toggle + bio */}
-          <div className={cn('flex items-center gap-5 sm:gap-8 md:gap-12', isPositionRight && 'md:justify-end')}>
+          <div className={cn('flex items-center justify-between w-full gap-5 sm:gap-8 md:gap-12', isPositionRight && 'md:justify-end')}>
+            {/* Bio copy — enlarged body text */}
+            <div className='flex-1 sm:w-[80%] md:w-[50%]'>
+              <p
+                className={cn(
+                  'text-xs sm:text-sm md:text-base lg:text-lg leading-[1.7] md:leading-[1.8] text-foreground/60 font-light whitespace-pre-line',
+                  isPositionRight && 'text-left md:text-right'
+                )}
+              >
+                {description}
+              </p>
+            </div>
+
             {/* Circular CTA with hover pulse */}
             <motion.div
               whileHover={{ scale: 1.1 }}
@@ -117,18 +129,6 @@ export default function TeamMemberCard({
                 )}
               />
             </motion.div>
-
-            {/* Bio copy — enlarged body text */}
-            <div className='w-full sm:w-[80%] md:w-[50%]'>
-              <p
-                className={cn(
-                  'text-xs sm:text-sm md:text-base lg:text-lg leading-[1.7] md:leading-[1.8] text-foreground/60 font-light whitespace-pre-line',
-                  isPositionRight && 'text-left md:text-right'
-                )}
-              >
-                {description}
-              </p>
-            </div>
           </div>
         </motion.div>
       </div>
