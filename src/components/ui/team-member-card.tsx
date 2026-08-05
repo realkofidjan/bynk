@@ -73,7 +73,7 @@ export default function TeamMemberCard({
             alt={fullName}
             onLoad={() => setImgLoaded(true)}
             className={cn(
-              'h-full w-full object-cover duration-500 ease-[0.22,1,0.36,1] hover:scale-105 transition-opacity',
+              'h-full w-full object-cover duration-500 ease-[0.22,1,0.36,1] transition-opacity',
               imgLoaded ? 'opacity-100' : 'opacity-0'
             )}
           />
@@ -99,7 +99,7 @@ export default function TeamMemberCard({
           </div>
 
           {/* Details row — toggle + bio */}
-          <div className={cn('flex items-center justify-between w-full gap-5 sm:gap-8 md:gap-12', isPositionRight && 'md:justify-end')}>
+          <div className={cn('flex items-center justify-between w-full gap-5 sm:gap-8 md:gap-12 md:pl-28', isPositionRight && 'md:justify-end')}>
             {/* Bio copy — enlarged body text */}
             <div className='flex-1 sm:w-[80%] md:w-[50%]'>
               <p
