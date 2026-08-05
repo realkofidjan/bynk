@@ -5,7 +5,7 @@ import TeamMemberCard from '@/components/ui/team-member-card';
 const socials = [
   {
     name: 'Instagram',
-    handle: '@nanakofidjan',
+    handle: '@by.justnk',
     href: 'https://instagram.com',
     icon: (
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7 sm:w-8 sm:h-8">
@@ -17,7 +17,7 @@ const socials = [
   },
   {
     name: 'Threads',
-    handle: '@nanakofidjan',
+    handle: '@by.justnk',
     href: 'https://threads.net',
     icon: (
       <svg width="32" height="32" viewBox="0 0 192 192" fill="currentColor" className="w-7 h-7 sm:w-8 sm:h-8">
@@ -28,7 +28,7 @@ const socials = [
   {
     name: 'WhatsApp',
     handle: '+1 (555) 019-2834',
-    href: 'https://wa.me/15550192834',
+    href: 'https://wa.me/0205555084',
     icon: (
       <svg width="32" height="32" viewBox="0 0 48 48" fill="none" className="w-7 h-7 sm:w-8 sm:h-8">
         <path fill="currentColor" fillRule="evenodd" clipRule="evenodd" d="M23.993 0C10.762 0 0 10.765 0 24c0 5.248 1.693 10.116 4.57 14.067L1.58 46.984l9.225-2.948C14.599 46.547 19.126 48 24.007 48 37.238 48 48 37.234 48 24 48 10.766 37.238 0 24.007 0h-.014zM17.293 12.19c-.465-1.114-.818-1.156-1.523-1.185a12.87 12.87 0 0 0-.804-.027c-.917 0-1.876.268-2.455.86-.705.72-2.454 2.399-2.454 5.842 0 3.443 2.51 6.773 2.849 7.239.353.465 4.895 7.633 11.947 10.554 5.515 2.286 7.152 2.074 8.407 1.806 1.834-.395 4.133-1.75 4.711-3.386.578-1.637.578-3.034.409-3.33-.169-.297-.635-.466-1.34-.819-.705-.353-4.133-2.046-4.782-2.272-.635-.24-1.241-.155-1.72.522-.677.945-1.34 1.905-1.876 2.483-.423.452-1.115.508-1.693.268-.776-.324-2.948-1.087-5.628-3.471-2.074-1.848-3.484-4.148-3.893-4.839-.41-.705-.043-1.115.28-1.496.353-.437.691-.747 1.044-1.156.353-.409.55-.621.776-1.101.24-.465.07-.945-.1-1.298-.169-.353-1.58-3.796-2.158-5.192z" />
