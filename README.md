@@ -2,37 +2,60 @@
 
 A minimalist, high-aesthetic photography and visual portfolio built with Next.js, Three.js / React Three Fiber, Framer Motion, and Tailwind CSS.
 
-## Getting Started
+---
+
+## 📸 Managing Photos & Collections
+
+### 1. Adding Photos to an Existing Collection
+1. Drop your new photo files (`.jpg`, `.jpeg`, `.png`, `.webp`) directly into the project folder:
+   ```
+   public/projects/01-genesis/
+   ```
+2. **(Optional) Set Cover Image**: Open `category.txt` in that folder:
+   - **Line 1**: Category title (e.g., `The Beginning`)
+   - **Line 2**: File name of your chosen main cover photo (e.g., `___NK3628@2026.jpg`)
+
+### 2. Creating a New Project / Category
+1. Create a new directory inside `public/projects/`:
+   ```
+   public/projects/02-moments/
+   ```
+2. Add your photo files (`.jpg`, `.png`, etc.) into that folder.
+3. Create a `category.txt` file inside the new project folder:
+   ```txt
+   Moments in Time
+   cover-image.jpg
+   ```
+   *(Line 1 is the display title; Line 2 is the optional cover photo filename)*.
+
+### 3. Deploying Updates Live
+Whenever you add or update photos, commit and push to GitHub to trigger automatic Vercel deployment:
+
+```bash
+git add .
+git commit -m "add new portfolio photos"
+git push origin main
+```
+
+### 💡 Image Optimization Best Practice
+- Use `.jpg` or `.webp` formats at **80%–90% quality** (~1MB to 3MB per photo).
+- Delivers crisp visual clarity on 4K retina displays while maintaining fast page load speeds and smooth 3D animations.
+
+---
+
+## 🛠️ Local Development
 
 First, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Building for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+npm run start
+```
