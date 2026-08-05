@@ -39,7 +39,7 @@ const socials = [
 
 export default function MePage() {
   return (
-    <main id="me-page" className="min-h-screen bg-background relative flex flex-col md:flex-row items-center md:items-end justify-center md:justify-start overflow-x-hidden selection:bg-foreground/20 pt-20 pb-16 px-6 md:p-12 lg:p-16">
+    <main id="me-page" className="h-screen bg-background relative flex flex-col md:flex-row items-center md:items-end justify-center md:justify-start overflow-hidden selection:bg-foreground/20 pt-28 pb-16 px-6 md:pt-24 md:pb-12 md:px-12 lg:px-16">
       {/* Background Ambient Glow */}
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 
@@ -49,7 +49,7 @@ export default function MePage() {
           position="left"
           firstName="Nana Kofi"
           lastName="Djan"
-          imageUrl="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80"
+          imageUrl="/profile/profile.png"
           description={`Light. People. Stories.
 Portraits • Street • Lifestyle • Events`}
         />
