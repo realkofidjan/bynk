@@ -50,7 +50,8 @@ export default function MePage() {
           firstName="Nana Kofi"
           lastName="Djan"
           imageUrl="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80"
-          description="Light. People. Stories. Portraits • Street • Lifestyle • Events"
+          description={`Light. People. Stories.
+Portraits • Street • Lifestyle • Events`}
         />
       </div>
 

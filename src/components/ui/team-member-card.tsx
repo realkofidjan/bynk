@@ -122,7 +122,7 @@ export default function TeamMemberCard({
             <div className='w-full sm:w-[80%] md:w-[50%]'>
               <p
                 className={cn(
-                  'text-xs sm:text-sm md:text-base lg:text-lg leading-[1.7] md:leading-[1.8] text-foreground/60 font-light',
+                  'text-xs sm:text-sm md:text-base lg:text-lg leading-[1.7] md:leading-[1.8] text-foreground/60 font-light whitespace-pre-line',
                   isPositionRight && 'text-left md:text-right'
                 )}
               >
