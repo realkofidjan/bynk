@@ -185,7 +185,7 @@ export function Lightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header: title + close (Fixed top section) */}
-        <div className="flex-none w-full flex items-baseline justify-between mb-12">
+        <div className="flex-none w-full flex items-baseline justify-between px-4 sm:px-6 md:px-8 mb-12">
           <div>
             <h2 className="font-serif text-xl md:text-2xl text-foreground/90 italic tracking-tight">
               {project.title}
