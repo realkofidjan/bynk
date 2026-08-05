@@ -49,11 +49,11 @@ export default function TeamMemberCard({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className={cn('relative my-4 md:my-8 flex flex-col justify-center w-full', className)}
+      className={cn('relative my-0 lg:my-8 flex flex-col justify-center w-full', className)}
     >
       <div className={cn(
-        'flex flex-col md:flex-row items-center md:items-center justify-center md:justify-end w-full gap-6 md:gap-0',
-        isPositionRight && 'md:flex-row-reverse'
+        'flex flex-col lg:flex-row items-center lg:items-center justify-center lg:justify-end w-full gap-3 lg:gap-0',
+        isPositionRight && 'lg:flex-row-reverse'
       )}>
         {/* Portrait image with reveal animation - Enlarged */}
         <motion.div
@@ -61,7 +61,7 @@ export default function TeamMemberCard({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            'relative h-[360px] w-full max-w-[320px] sm:h-[480px] sm:max-w-[400px] md:h-[680px] md:w-[500px] md:max-w-none lg:h-[740px] lg:w-[540px] shrink-0 overflow-hidden bg-foreground/[0.04] rounded-lg md:rounded-none',
+            'relative h-[42vh] max-h-[50vh] w-[calc(42vh*0.75)] min-w-[240px] lg:h-[740px] lg:max-h-none lg:w-[540px] lg:min-w-0 shrink-0 overflow-hidden bg-foreground/[0.04] rounded-none',
             isPositionRight && 'order-1'
           )}
         >
@@ -85,13 +85,13 @@ export default function TeamMemberCard({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            'relative left-0 md:-left-12 z-2 flex w-full max-w-[320px] sm:max-w-[400px] md:max-w-none md:w-[calc(100%-460px)] flex-col gap-6 md:gap-16',
-            isPositionRight && 'md:left-12 items-start md:items-end'
+            'relative left-0 lg:-left-12 z-2 flex w-[calc(42vh*0.75)] min-w-[240px] lg:min-w-0 lg:max-w-none lg:w-[calc(100%-460px)] flex-col gap-4 lg:gap-16',
+            isPositionRight && 'lg:left-12 items-start lg:items-end'
           )}
         >
           {/* Display name — enlarged editorial type with serif italics mixture */}
           <div>
-            <p className='font-serif text-4xl sm:text-6xl md:text-8xl lg:text-[7rem] leading-[1.02] tracking-tight text-foreground'>
+            <p className='font-serif text-3xl sm:text-5xl md:text-7xl lg:text-[7rem] leading-[1.02] tracking-tight text-foreground whitespace-nowrap'>
               <span className='italic font-light'>{firstName}</span>
               <br />
               <span className='font-normal'>{lastName}</span>
@@ -99,13 +99,13 @@ export default function TeamMemberCard({
           </div>
 
           {/* Details row — toggle + bio */}
-          <div className={cn('flex items-center justify-between w-full gap-5 sm:gap-8 md:gap-12 md:pl-28', isPositionRight && 'md:justify-end')}>
+          <div className={cn('flex items-center justify-between w-full gap-5 sm:gap-8 lg:gap-12 lg:pl-28', isPositionRight && 'lg:justify-end')}>
             {/* Bio copy — enlarged body text */}
             <div className='flex-1 sm:w-[80%] md:w-[50%]'>
               <p
                 className={cn(
-                  'text-xs sm:text-sm md:text-base lg:text-lg leading-[1.7] md:leading-[1.8] text-foreground/60 font-light whitespace-pre-line',
-                  isPositionRight && 'text-left md:text-right'
+                  'text-xs sm:text-sm md:text-base lg:text-lg leading-[1.7] lg:leading-[1.8] text-foreground/60 font-light whitespace-pre-line line-clamp-2',
+                  isPositionRight && 'text-left lg:text-right'
                 )}
               >
                 {description}
@@ -117,14 +117,14 @@ export default function TeamMemberCard({
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.95 }}
               className={cn(
-                'group flex h-14 w-14 sm:h-16 sm:w-16 md:h-24 md:w-24 shrink-0 cursor-pointer items-center justify-center rounded-full border border-foreground/30 transition-all duration-300 hover:border-foreground hover:bg-foreground dark:hover:bg-white dark:hover:border-white',
+                'group flex h-14 w-14 sm:h-16 sm:w-16 lg:h-24 lg:w-24 shrink-0 cursor-pointer items-center justify-center rounded-full border border-foreground/30 transition-all duration-300 hover:border-foreground hover:bg-foreground dark:hover:bg-white dark:hover:border-white',
                 isPositionRight && 'order-1'
               )}
             >
               <ArrowRight
                 size={22}
                 className={cn(
-                  'text-foreground transition-all duration-300 group-hover:-rotate-45 group-hover:text-background dark:group-hover:text-black md:w-6 md:h-6',
+                  'text-foreground transition-all duration-300 group-hover:-rotate-45 group-hover:text-background dark:group-hover:text-black lg:w-6 lg:h-6',
                   isPositionRight && 'rotate-180 group-hover:rotate-225'
                 )}
               />

@@ -39,12 +39,12 @@ const socials = [
 
 export default function MePage() {
   return (
-    <main id="me-page" className="h-screen bg-background relative flex flex-col md:flex-row items-center md:items-end justify-end md:justify-start overflow-hidden selection:bg-foreground/20 pt-28 pb-6 px-6 md:pt-0 md:pb-0 md:px-12 lg:px-16">
+    <main id="me-page" className="h-screen bg-background relative flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-start overflow-hidden selection:bg-foreground/20 pt-0 pb-0 px-0 lg:pt-0 lg:pb-0 lg:px-12 xl:px-16">
       {/* Background Ambient Glow */}
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 
       {/* Editorial Team Member Card Component - Touch Bottom-Left & Fill 80% */}
-      <div className="relative z-10 pointer-events-auto w-full max-w-full md:w-[85vw] md:max-w-[85vw] pb-2">
+      <div className="relative z-10 pointer-events-auto w-full max-w-full lg:w-[85vw] lg:max-w-[85vw] pb-2">
         <TeamMemberCard
           position="left"
           firstName="Nana Kofi"
@@ -56,7 +56,7 @@ Portraits • Street • Lifestyle • Events`}
       </div>
 
       {/* Vertical Social Media Icon Bar on Desktop / Horizontal on Mobile */}
-      <div className="relative md:fixed right-auto md:right-8 top-auto md:top-1/2 md:-translate-y-1/2 z-40 flex flex-row md:flex-col items-center justify-center gap-6 sm:gap-8 pointer-events-auto mt-16 md:mt-0 pb-6 md:pb-0">
+      <div className="relative lg:fixed right-auto lg:right-8 top-auto lg:top-1/2 lg:-translate-y-1/2 z-40 w-full lg:w-auto flex flex-row lg:flex-col items-center justify-center gap-6 sm:gap-8 pointer-events-auto mt-4 lg:mt-0 pb-4 lg:pb-0">
         {socials.map((item) => (
           <a
             key={item.name}
