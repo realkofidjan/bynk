@@ -73,6 +73,17 @@ export function GlobalGalleryProvider({
         />
       </div>
 
+      {/* Centered Logo with Exclusion Blend - same compositing context as gallery */}
+      {isHomePage && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[5] mix-blend-difference">
+          <img
+            src="/logos/logo-white.svg"
+            alt="Logo"
+            className="w-48 sm:w-64 md:w-80 h-auto"
+          />
+        </div>
+      )}
+
       {/* Main Page Children (Home / Me) - pointer-events-none so clicks hit 3D canvas */}
       <div className="relative z-10 pointer-events-none">{children}</div>
 
