@@ -1,42 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { verifyPasscode } from '@/app/gallery/actions';
 import { Shoot } from '@/lib/shoots';
-import { Lock, ArrowRight, Download, Loader2, Info } from 'lucide-react';
+import { Download, Info, Loader2, X } from 'lucide-react';
 import Image from 'next/image';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from '@/components/ui/interfaces-input-otp';
 
 export default function GalleryClient() {
-  const [passcode, setPasscode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [shoot, setShoot] = useState<Shoot | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passcode.trim()) return;
+  const handleComplete = useCallback(async (value: string) => {
+    if (loading) return;
 
     setLoading(true);
     setError('');
 
     try {
-      const result = await verifyPasscode(passcode.trim());
+      const result = await verifyPasscode(value);
       if (result.success && result.shoot) {
         setShoot(result.shoot);
       } else {
         setError(result.error || 'Invalid passcode');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading]);
 
   const handleDownload = () => {
     if (!shoot) return;
-    // Trigger download API route
     window.location.href = `/api/download?code=${encodeURIComponent(shoot.passcode)}`;
   };
 
@@ -49,62 +52,69 @@ export default function GalleryClient() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-md flex flex-col items-center text-center space-y-8"
+            transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+            className="flex flex-col items-center text-center space-y-10"
           >
-            <div className="w-16 h-16 rounded-full bg-foreground/5 flex items-center justify-center mb-4">
-              <Lock className="w-6 h-6 text-foreground/70" />
-            </div>
-            
-            <div className="space-y-2">
-              <h1 className="text-3xl font-serif tracking-tight">Client Access</h1>
-              <p className="text-foreground/60 text-sm">
-                Enter your unique passcode to view and download your gallery.
+            {/* Minimal heading */}
+            <div className="space-y-3">
+              <h1 className="text-2xl font-serif tracking-tight text-foreground">
+                Enter your shoot code
+              </h1>
+              <p className="text-foreground/40 text-xs font-mono uppercase tracking-[0.2em]">
+                6-digit access code
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="w-full space-y-4">
-              <div className="relative">
-                <input
-                  type="password"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Enter passcode"
-                  className="w-full bg-transparent border-b border-foreground/20 px-4 py-3 outline-none focus:border-foreground transition-colors placeholder:text-foreground/30 text-center text-lg"
-                  disabled={loading}
-                />
-              </div>
+            {/* OTP Input */}
+            <div className="flex flex-col items-center gap-6">
+              <InputOTP
+                maxLength={6}
+                onComplete={handleComplete}
+                disabled={loading}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                </InputOTPGroup>
+                <InputOTPSeparator />
+                <InputOTPGroup>
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
 
-              {error && (
-                <motion.p
+              {/* Loading indicator */}
+              {loading && (
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-red-500 text-sm text-center"
+                  className="flex items-center gap-2 text-foreground/50"
+                >
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="text-xs font-mono uppercase tracking-widest">Verifying</span>
+                </motion.div>
+              )}
+
+              {/* Error message */}
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-500/80 text-xs font-mono uppercase tracking-widest"
                 >
                   {error}
                 </motion.p>
               )}
-
-              <button
-                type="submit"
-                disabled={loading || !passcode.trim()}
-                className="w-full py-4 mt-8 flex items-center justify-center gap-2 text-sm uppercase tracking-[0.2em] font-mono group disabled:opacity-50 transition-all border border-foreground/10 hover:border-foreground/30 hover:bg-foreground/5"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    Access Gallery
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </button>
-            </form>
+            </div>
           </motion.div>
         ) : (
           <motion.div
             key="gallery"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
             className="w-full flex flex-col space-y-12 pb-24"
           >
             {/* Header Section */}
@@ -117,13 +127,22 @@ export default function GalleryClient() {
                 </p>
               </div>
               
-              <button
-                onClick={handleDownload}
-                className="flex items-center gap-3 px-6 py-3 bg-foreground text-background font-mono text-xs uppercase tracking-widest hover:bg-foreground/80 transition-colors shrink-0"
-              >
-                <Download className="w-4 h-4" />
-                Download All
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleDownload}
+                  className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-foreground/60 hover:text-foreground transition-colors shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  Download All
+                </button>
+                <button
+                  onClick={() => setShoot(null)}
+                  className="flex items-center justify-center w-10 h-10 hover:bg-foreground/5 transition-all shrink-0"
+                  title="Back to passcode entry"
+                >
+                  <X className="w-4 h-4 text-foreground/60" />
+                </button>
+              </div>
             </div>
 
             {/* Gallery Grid */}
@@ -146,6 +165,15 @@ export default function GalleryClient() {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500" />
+                  <a
+                    href={image.src}
+                    download={image.filename}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-3 right-3 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm text-white opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 ease-out hover:bg-black/80"
+                    title={`Download ${image.filename}`}
+                  >
+                    <Download className="w-4 h-4" />
+                  </a>
                 </motion.div>
               ))}
             </div>
