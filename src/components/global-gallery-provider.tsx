@@ -84,8 +84,10 @@ export function GlobalGalleryProvider({
         </div>
       )}
 
-      {/* Main Page Children (Home / Me) - pointer-events-none so clicks hit 3D canvas */}
-      <div className="relative z-10 pointer-events-none">{children}</div>
+      {/* Main Page Children (Home / Me) - pointer-events-none so clicks hit 3D canvas only on home page */}
+      <div className={`relative z-10 ${isHomePage ? 'pointer-events-none' : 'pointer-events-auto'}`}>
+        {children}
+      </div>
 
       {/* Project Lightbox */}
       {selectedProject && (
