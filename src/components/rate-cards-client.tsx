@@ -287,8 +287,8 @@ export default function RateCardsClient() {
 
   return (
     <div className="relative w-full max-w-5xl mx-auto flex flex-col items-center justify-center z-10 h-full max-h-screen py-3 sm:py-6">
-      {/* Ambient Warm Champagne & Rose Gold Background Glow */}
-      <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-tr from-amber-400/10 via-rose-400/10 to-transparent rounded-full filter blur-3xl pointer-events-none -z-10" />
+      {/* Ambient Midnight Titanium & Electric Cobalt Background Glow */}
+      <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-tr from-blue-600/10 via-indigo-600/10 to-transparent rounded-full filter blur-3xl pointer-events-none -z-10" />
 
       {/* Header */}
       <motion.div
@@ -297,7 +297,7 @@ export default function RateCardsClient() {
         transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
         className="text-center space-y-1.5 mb-6 sm:mb-9 max-w-xl shrink-0"
       >
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif tracking-tight bg-gradient-to-r from-foreground via-foreground to-amber-700/80 dark:to-amber-300/80 bg-clip-text text-transparent">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif tracking-tight bg-gradient-to-r from-foreground via-foreground to-blue-500 dark:to-cyan-400 bg-clip-text text-transparent">
           {currentTab.name}
         </h1>
         <p className="text-foreground/50 text-[11px] sm:text-xs font-mono tracking-wider max-w-md mx-auto">
@@ -321,19 +321,19 @@ export default function RateCardsClient() {
                 key={pkg.id}
                 className={`relative flex flex-col justify-between h-[410px] sm:h-[430px] p-5 sm:p-6 rounded-none border transition-all duration-500 ${
                   pkg.popular
-                    ? 'border-amber-500/40 dark:border-amber-400/40 bg-amber-500/[0.02] dark:bg-amber-400/[0.03] shadow-lg shadow-amber-500/5'
-                    : 'border-foreground/10 bg-foreground/[0.01] hover:border-amber-500/30 hover:bg-foreground/[0.02]'
+                    ? 'border-blue-500/40 dark:border-cyan-400/40 bg-blue-500/[0.02] dark:bg-cyan-400/[0.03] shadow-lg shadow-blue-500/5'
+                    : 'border-foreground/10 bg-foreground/[0.01] hover:border-blue-500/30 hover:bg-foreground/[0.02]'
                 }`}
               >
                 {pkg.popular && (
-                  <span className="absolute -top-2.5 left-5 px-2.5 py-0.5 bg-gradient-to-r from-amber-200 via-rose-200 to-amber-300 text-neutral-950 font-mono text-[8px] uppercase tracking-[0.2em] font-semibold shadow-sm">
+                  <span className="absolute -top-2.5 left-5 px-2.5 py-0.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 text-white font-mono text-[8px] uppercase tracking-[0.2em] font-semibold shadow-md shadow-blue-500/20">
                     Most Requested
                   </span>
                 )}
 
                 <div className="space-y-3 flex-1 flex flex-col">
                   <div className="space-y-1 shrink-0">
-                    <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-amber-600/60 dark:text-amber-400/60 font-semibold">
+                    <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-blue-500/70 dark:text-cyan-400/70 font-semibold">
                       {String(index + 1).padStart(2, '0')}
                     </span>
                     <h3 className="text-xl sm:text-2xl font-serif tracking-tight text-foreground">
@@ -341,7 +341,7 @@ export default function RateCardsClient() {
                     </h3>
                   </div>
 
-                  <div className="font-mono text-base font-medium text-amber-700 dark:text-amber-300 pb-2.5 border-b border-foreground/10 shrink-0">
+                  <div className="font-mono text-base font-medium text-blue-600 dark:text-cyan-400 pb-2.5 border-b border-foreground/10 shrink-0">
                     {pkg.price}
                   </div>
 
@@ -352,7 +352,7 @@ export default function RateCardsClient() {
                   <ul className="space-y-2 pt-1 flex-1 flex flex-col justify-start">
                     {pkg.features.map((feature, i) => (
                       <li key={i} className="flex items-center gap-2.5 text-[11px] text-foreground/80 font-mono">
-                        <Check className="w-3 h-3 text-amber-500/80 shrink-0" />
+                        <Check className="w-3 h-3 text-blue-500 dark:text-cyan-400 shrink-0" />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -362,7 +362,7 @@ export default function RateCardsClient() {
                 <div className="pt-3 mt-3 border-t border-foreground/10 shrink-0">
                   <Link
                     href="/me"
-                    className="group w-full py-1 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors"
+                    className="group w-full py-1 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.2em] text-blue-600 dark:text-cyan-400 hover:text-blue-500 transition-colors"
                   >
                     <span>Inquire Session</span>
                     <ArrowUpRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
@@ -385,7 +385,7 @@ export default function RateCardsClient() {
             transition={{ delay: 0.25, duration: 0.5 }}
             className="font-mono text-[10px] uppercase tracking-[0.15em] text-foreground/60"
           >
-            <span className="text-amber-600 dark:text-amber-400 font-semibold mr-1.5">ADD-ONS:</span>
+            <span className="text-blue-600 dark:text-cyan-400 font-semibold mr-1.5">ADD-ONS:</span>
             {currentTab.addOns}
           </motion.div>
         )}
@@ -398,7 +398,7 @@ export default function RateCardsClient() {
           className="font-mono text-[10px] uppercase tracking-[0.15em] text-foreground/50 max-w-xl mt-3 sm:mt-4"
         >
           If you have something more bespoke in mind, speak to my{' '}
-          <Link href="/me" className="underline underline-offset-4 decoration-amber-400/50 hover:decoration-amber-400 transition-colors text-amber-600 dark:text-amber-400 font-medium">
+          <Link href="/me" className="underline underline-offset-4 decoration-cyan-400/50 hover:decoration-cyan-400 transition-colors text-blue-600 dark:text-cyan-400 font-medium">
             service bot
           </Link>
           .
@@ -417,8 +417,8 @@ export default function RateCardsClient() {
               aria-label={tab.name}
               className={`group relative p-3 rounded-full border transition-all duration-300 transform hover:scale-110 flex items-center justify-center ${
                 isActive
-                  ? 'bg-gradient-to-tr from-amber-500 via-rose-500 to-amber-400 text-neutral-950 border-amber-400 shadow-lg shadow-amber-500/20 scale-110 ring-2 ring-amber-400/30'
-                  : 'bg-background/80 text-foreground/40 border-foreground/10 hover:text-amber-500 hover:border-amber-400/30 hover:bg-amber-500/5'
+                  ? 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white border-cyan-400 shadow-lg shadow-blue-500/25 scale-110 ring-2 ring-cyan-400/30'
+                  : 'bg-background/80 text-foreground/40 border-foreground/10 hover:text-blue-500 hover:border-blue-400/30 hover:bg-blue-500/5'
               }`}
             >
               <div className="transition-colors">
@@ -434,7 +434,7 @@ export default function RateCardsClient() {
               {isActive && (
                 <motion.span
                   layoutId="activeCategoryIndicator"
-                  className="absolute -inset-1 rounded-full border border-amber-400/50 pointer-events-none"
+                  className="absolute -inset-1 rounded-full border border-cyan-400/60 pointer-events-none"
                   transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                 />
               )}
