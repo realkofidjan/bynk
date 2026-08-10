@@ -43,8 +43,8 @@ export default function Navigation() {
                 {item.label}
                 <span
                   className={`
-                    absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400 rounded-full transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]
-                    ${isActive ? 'w-full opacity-100 shadow-[0_0_8px_rgba(59,130,246,0.4)]' : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-60'}
+                    absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 rounded-full transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]
+                    ${isActive ? 'w-full opacity-100 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'w-0 opacity-0 group-hover:w-full group-hover:opacity-60'}
                   `}
                 />
               </span>
