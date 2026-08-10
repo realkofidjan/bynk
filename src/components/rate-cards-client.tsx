@@ -178,7 +178,7 @@ const categoryTabs: CategoryTab[] = [
     subtitle: 'High fashion, studio & personal portraiture',
     tag: '03',
     icon: <PortraitIcon />,
-    addOns: 'Extra image: GHS 30–60 • Express delivery (24h): GHS 500 • Makeup artist (MUA): GHS 400–800 • BTS video: GHS 500+',
+    addOns: 'Extra image: GHS 30–60 • Express delivery (24h): GHS 500 • BTS video: GHS 500+',
     packages: [
       {
         id: 'p-signature',
@@ -186,7 +186,7 @@ const categoryTabs: CategoryTab[] = [
         price: 'GHS 1,300',
         description: 'Perfect for simple, clean portraits',
         features: [
-          'Up to 45 minutes session',
+          'Up to 60 minutes session',
           '1 studio setup & 1 outfit',
           '8 professionally edited images',
           '2 skin & lighting retouched images',
