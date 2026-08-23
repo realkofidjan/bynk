@@ -5,7 +5,7 @@ import { initializePaystackTransaction } from '@/lib/paystack';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { bookingId, email, totalPrice, category, tier, name, phone } = body;
+    const { bookingId, email, totalPrice, basePriceGhs, addOnsGhs, category, tier, name, phone } = body;
 
     if (!bookingId || !email || !totalPrice) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get('origin') || request.nextUrl.origin || 'https://bynk-gh.vercel.app';
     const callbackUrl = `${origin}/book?status=payment_complete&bookingId=${bookingId}`;
 
-    const depositGhs = Math.round((totalPrice * 50) / 100);
+    const base = basePriceGhs || totalPrice;
+    const addOns = addOnsGhs || 0;
+    const depositGhs = Math.round(base / 2) + addOns;
 
     // Save deposit_amount to Supabase booking record
     await supabase
@@ -36,11 +38,11 @@ export async function POST(request: NextRequest) {
       .update({ deposit_amount: depositGhs })
       .eq('id', bookingId);
 
-    // Initialize transaction with Paystack
+    // Initialize transaction with Paystack for 50% base + 100% add-ons
     const result = await initializePaystackTransaction({
       email,
       amountInGhs: totalPrice,
-      depositPercentage: 50,
+      exactAmountInGhs: depositGhs,
       bookingId,
       callbackUrl,
       metadata: {

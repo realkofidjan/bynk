@@ -589,15 +589,16 @@ function BookingFormLightbox({
 
   const availableAddOns = categoryAddOns[categoryId] || [];
 
-  // Base price & deposit extraction
+  // Base price & deposit extraction: Add-ons paid 100% upfront, Base package 50% upfront
   const basePriceNum = parseInt(tierPrice.replace(/[^0-9]/g, ''), 10) || 0;
   const selectedAddOnsList = availableAddOns.filter((addon) =>
     selectedAddOnIds.includes(addon.id)
   );
   const addOnsTotal = selectedAddOnsList.reduce((sum, item) => sum + item.price, 0);
   const totalPriceNum = basePriceNum + addOnsTotal;
-  const depositGhs = Math.round((totalPriceNum * 50) / 100);
-  const remainingBalanceGhs = totalPriceNum - depositGhs;
+  const baseDepositGhs = Math.round(basePriceNum / 2);
+  const depositGhs = baseDepositGhs + addOnsTotal;
+  const remainingBalanceGhs = basePriceNum - baseDepositGhs;
 
   const toggleAddOn = (id: string) => {
     setSelectedAddOnIds((prev) =>

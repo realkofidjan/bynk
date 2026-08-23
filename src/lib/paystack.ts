@@ -6,8 +6,9 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 export type InitializePaymentParams = {
   email: string;
-  amountInGhs: number; // e.g. 500 for GHS 500
+  amountInGhs: number; // total package price e.g. 1500
   depositPercentage?: number; // default 50%
+  exactAmountInGhs?: number; // if provided, charge this exact GHS amount directly
   bookingId: string;
   callbackUrl: string;
   metadata?: Record<string, any>;
@@ -21,12 +22,13 @@ export type InitializePaymentResult = {
 };
 
 /**
- * Initialize a Paystack transaction for the 50% deposit amount.
+ * Initialize a Paystack transaction for deposit or remaining balance.
  */
 export async function initializePaystackTransaction({
   email,
   amountInGhs,
   depositPercentage = 50,
+  exactAmountInGhs,
   bookingId,
   callbackUrl,
   metadata = {},
@@ -35,8 +37,10 @@ export async function initializePaystackTransaction({
     return { success: false, error: 'PAYSTACK_SECRET_KEY is not configured' };
   }
 
-  // Calculate 50% deposit amount in GHS, then convert to pesewas (* 100)
-  const depositGhs = Math.round((amountInGhs * depositPercentage) / 100);
+  // Calculate charge amount in GHS, then convert to pesewas (* 100)
+  const depositGhs = exactAmountInGhs !== undefined
+    ? Math.round(exactAmountInGhs)
+    : Math.round((amountInGhs * depositPercentage) / 100);
   const amountInPesewas = depositGhs * 100;
 
   const reference = `BYNK_${bookingId.slice(0, 8)}_${Date.now()}`;
