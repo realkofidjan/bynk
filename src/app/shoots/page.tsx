@@ -404,7 +404,7 @@ export default function ShootsPage() {
                         <MessageSquare className="w-3.5 h-3.5" />
                         {sendingEmailId === shoot.id
                           ? 'Generating Link...'
-                          : `Send 50% Balance via WhatsApp (GHS ${remainingBalance.toLocaleString()})`}
+                          : `Send Balance Payment Link via WhatsApp`}
                       </button>
                     )}
                   </div>
