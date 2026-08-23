@@ -893,10 +893,10 @@ function BookingFormLightbox({
                 </div>
               </div>
 
-              {/* Preferred Date & Time Slot with ChronoSelect */}
+              {/* Preferred Date */}
               <div>
                 <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
-                  Preferred Date{!fullDay && ' & Time'}
+                  Preferred Date
                 </label>
                 <ChronoSelect
                   value={date}
@@ -904,13 +904,62 @@ function BookingFormLightbox({
                   yearRange={[2026, 2035]}
                   placeholder={loadingAvailability ? 'Loading availability...' : 'Pick a booking date'}
                   disabledDates={disabledDates}
-                  showSlots={true}
-                  availabilityMap={availabilityMap}
-                  selectedSlot={selectedSlot}
-                  onSlotChange={setSelectedSlot}
-                  isFullDay={fullDay}
                 />
               </div>
+
+              {/* Time Slot Picker — separate from date picker */}
+              {date && !fullDay && (
+                <div>
+                  <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
+                    Preferred Time
+                  </label>
+                  <div className="flex gap-2">
+                    {(['morning', 'afternoon'] as const).map((slot) => {
+                      const dateKey = toDateKey(date);
+                      const dayInfo = availabilityMap[dateKey];
+                      const isBooked = dayInfo?.slots?.[slot] === 'booked';
+                      const isSelected = selectedSlot === slot;
+
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          disabled={isBooked}
+                          onClick={() => setSelectedSlot(slot)}
+                          className={`
+                            flex-1 py-2.5 px-3 text-[10px] font-mono tracking-wide border transition-all duration-200 rounded-none
+                            ${isBooked
+                              ? 'bg-foreground/[0.03] text-foreground/20 border-foreground/[0.06] cursor-not-allowed line-through'
+                              : isSelected
+                                ? 'bg-foreground text-background border-foreground shadow-sm cursor-pointer'
+                                : 'bg-foreground/[0.03] text-foreground/70 border-foreground/20 hover:bg-foreground/[0.06] hover:border-foreground/30 cursor-pointer'
+                            }
+                          `}
+                        >
+                          {SLOT_LABELS[slot]}
+                          {isBooked && (
+                            <span className="block text-[8px] mt-0.5 opacity-50" style={{ textDecoration: 'none' }}>
+                              Unavailable
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Full-day indicator for weddings/events */}
+              {date && fullDay && (
+                <div className="bg-foreground/[0.04] border border-foreground/15 px-3 py-2.5 text-center">
+                  <p className="text-[10px] font-mono text-foreground/70 tracking-wide">
+                    Full Day Session
+                  </p>
+                  <p className="text-[9px] font-mono text-foreground/40 mt-0.5">
+                    8 AM – End of event
+                  </p>
+                </div>
+              )}
 
               {/* Submit error */}
               {submitError && (
