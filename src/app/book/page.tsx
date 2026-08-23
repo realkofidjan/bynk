@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
+import { ChronoSelect } from '@/components/ui/chrono-select';
 
 /* ────────────────────────────────────────
    Rate Card Data — from NK_Photography_2026_Rate_Card.docx
@@ -565,7 +566,7 @@ function BookingFormLightbox({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState<Date | undefined>();
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
 
@@ -598,6 +599,8 @@ function BookingFormLightbox({
             .join('\n')
         : '  None';
 
+    const formattedDate = date ? date.toDateString() : 'Not specified';
+
     const message = [
       `Hi, I'd like to book a session.`,
       ``,
@@ -608,7 +611,7 @@ function BookingFormLightbox({
       `Name: ${name}`,
       `Email: ${email}`,
       `Phone: ${phone}`,
-      `Preferred Date: ${date}`,
+      `Preferred Date: ${formattedDate}`,
       ``,
       `I have read and agreed to the terms and conditions.`,
     ].join('\n');
@@ -628,7 +631,7 @@ function BookingFormLightbox({
   }, [onClose]);
 
   const inputClasses =
-    'w-full bg-transparent border border-foreground/10 px-3 py-2.5 text-foreground text-[11px] font-mono tracking-wide placeholder:text-foreground/20 focus:outline-none focus:border-foreground/30 transition-colors';
+    'w-full bg-transparent border border-foreground/10 px-3 py-2 text-foreground text-[11px] font-mono tracking-wide placeholder:text-foreground/20 focus:outline-none focus:border-foreground/30 transition-colors h-10';
 
   return (
     <motion.div
@@ -649,7 +652,7 @@ function BookingFormLightbox({
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-3xl max-h-[90vh] bg-background border border-foreground/[0.08] flex flex-col"
+        className="relative w-full max-w-[75vw] max-h-[85vh] bg-background border border-foreground/[0.08] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06] shrink-0">
@@ -663,7 +666,7 @@ function BookingFormLightbox({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-foreground/30 hover:text-foreground transition-colors"
+            className="p-2 text-foreground/30 hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -671,7 +674,7 @@ function BookingFormLightbox({
 
         {/* Scrollable Form (Landscape 2-Column Grid on Desktop) */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             {/* Left Column: Package Details, Add-ons & Total Price */}
             <div className="space-y-4">
               {/* Package summary & Total Price */}
@@ -777,17 +780,16 @@ function BookingFormLightbox({
                 </div>
               </div>
 
-              {/* Preferred Date */}
+              {/* Preferred Date with ChronoSelect */}
               <div>
                 <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
                   Preferred Date
                 </label>
-                <input
-                  type="date"
+                <ChronoSelect
                   value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={`${inputClasses} appearance-none`}
-                  required
+                  onChange={setDate}
+                  yearRange={[2026, 2035]}
+                  placeholder="Pick a booking date"
                 />
               </div>
 
