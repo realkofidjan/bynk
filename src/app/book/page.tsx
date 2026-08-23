@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X } from 'lucide-react';
+import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 
 /* ────────────────────────────────────────
    Rate Card Data — from NK_Photography_2026_Rate_Card.docx
@@ -707,36 +708,23 @@ function BookingFormLightbox({
 
               {/* Add-ons selection section */}
               {availableAddOns.length > 0 && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <label className="block text-foreground/40 text-[9px] font-mono uppercase tracking-[0.25em]">
                     Optional Add-Ons
                   </label>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto border border-foreground/10 p-2 divide-y divide-foreground/[0.04]">
-                    {availableAddOns.map((addon) => {
-                      const isChecked = selectedAddOnIds.includes(addon.id);
-                      return (
-                        <label
-                          key={addon.id}
-                          className="flex items-center justify-between py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => toggleAddOn(addon.id)}
-                              className="w-3.5 h-3.5 accent-foreground cursor-pointer shrink-0"
-                            />
-                            <span className="text-foreground/70 text-[10px] font-mono tracking-wide">
-                              {addon.name}
-                            </span>
-                          </div>
-                          <span className="text-foreground/50 text-[10px] font-mono shrink-0 pl-2">
-                            {addon.priceLabel || `+ GHS ${addon.price.toLocaleString()}`}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                  <TagsSelector
+                    tags={availableAddOns.map((addon) => ({
+                      id: addon.id,
+                      label: `${addon.name} (${addon.priceLabel || `+ GHS ${addon.price.toLocaleString()}`})`,
+                    }))}
+                    selectedTags={selectedAddOnsList.map((addon) => ({
+                      id: addon.id,
+                      label: `${addon.name} (${addon.priceLabel || `+ GHS ${addon.price.toLocaleString()}`})`,
+                    }))}
+                    onSelectedTagsChange={(newSelected) =>
+                      setSelectedAddOnIds(newSelected.map((t) => t.id))
+                    }
+                  />
                 </div>
               )}
             </div>
