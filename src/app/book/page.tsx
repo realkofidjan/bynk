@@ -5,6 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 import { ChronoSelect } from '@/components/ui/chrono-select';
+import {
+  type AvailabilityMap,
+  SLOT_LABELS,
+  isFullDayCategory,
+  toDateKey,
+} from '@/lib/booking-types';
 
 /* ────────────────────────────────────────
    Rate Card Data — from NK_Photography_2026_Rate_Card.docx
@@ -567,8 +573,18 @@ function BookingFormLightbox({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [date, setDate] = useState<Date | undefined>();
+  const [selectedSlot, setSelectedSlot] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  // Availability state
+  const [availabilityMap, setAvailabilityMap] = useState<AvailabilityMap>({});
+  const [disabledDates, setDisabledDates] = useState<Date[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(true);
+
+  const fullDay = isFullDayCategory(categoryId);
 
   const availableAddOns = categoryAddOns[categoryId] || [];
 
@@ -586,40 +602,137 @@ function BookingFormLightbox({
     );
   };
 
-  const isValid = name.trim() && email.trim() && phone.trim() && date && agreedToTerms;
+  // Fetch availability on mount
+  const fetchAvailability = useCallback(async () => {
+    try {
+      setLoadingAvailability(true);
+      const res = await fetch('/api/bookings');
+      if (res.ok) {
+        const data: AvailabilityMap = await res.json();
+        setAvailabilityMap(data);
 
-  const handleSubmit = (e: React.FormEvent) => {
+        // Build disabled dates array (fully blocked dates)
+        const blocked: Date[] = [];
+        for (const [dateKey, day] of Object.entries(data)) {
+          if (day.blocked) {
+            const [y, m, d] = dateKey.split('-').map(Number);
+            blocked.push(new Date(y, m - 1, d));
+          }
+        }
+        setDisabledDates(blocked);
+      }
+    } catch (err) {
+      console.error('Failed to fetch availability:', err);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAvailability();
+  }, [fetchAvailability]);
+
+  // Auto-set slot for full-day categories
+  useEffect(() => {
+    if (fullDay) {
+      setSelectedSlot('full_day');
+    }
+  }, [fullDay]);
+
+  // Clear slot when date changes (for non-full-day)
+  useEffect(() => {
+    if (!fullDay) {
+      setSelectedSlot('');
+    }
+    setSubmitError('');
+  }, [date, fullDay]);
+
+  const isValid =
+    name.trim() &&
+    email.trim() &&
+    phone.trim() &&
+    date &&
+    (selectedSlot || fullDay) &&
+    agreedToTerms &&
+    !submitting;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isValid) return;
+    if (!isValid || !date) return;
 
-    const addOnsText =
-      selectedAddOnsList.length > 0
-        ? selectedAddOnsList
-            .map((item) => `  - ${item.name} (+ GHS ${item.price.toLocaleString()})`)
-            .join('\n')
-        : '  None';
+    setSubmitting(true);
+    setSubmitError('');
 
-    const formattedDate = date ? date.toDateString() : 'Not specified';
+    const dateKey = toDateKey(date);
 
-    const message = [
-      `Hi, I'd like to book a session.`,
-      ``,
-      `Package: ${categoryLabel} — ${tierName} (${tierPrice})`,
-      `Selected Add-ons:\n${addOnsText}`,
-      `Estimated Total: GHS ${totalPriceNum.toLocaleString()}`,
-      ``,
-      `Name: ${name}`,
-      `Email: ${email}`,
-      `Phone: ${phone}`,
-      `Preferred Date: ${formattedDate}`,
-      ``,
-      `I have read and agreed to the terms and conditions.`,
-    ].join('\n');
+    try {
+      // POST to API to record the booking
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: dateKey,
+          slot: fullDay ? 'full_day' : selectedSlot,
+          category: categoryId,
+          tier: tierName,
+          name,
+          email,
+          phone,
+          addOns: selectedAddOnIds,
+          totalPrice: totalPriceNum,
+        }),
+      });
 
-    window.open(
-      `https://wa.me/233205555084?text=${encodeURIComponent(message)}`,
-      '_blank'
-    );
+      const result = await res.json();
+
+      if (!res.ok) {
+        setSubmitError(result.error || 'Booking failed. Please try again.');
+        // Refetch availability in case slots changed
+        await fetchAvailability();
+        setSubmitting(false);
+        return;
+      }
+
+      // Build WhatsApp message
+      const addOnsText =
+        selectedAddOnsList.length > 0
+          ? selectedAddOnsList
+              .map((item) => `  - ${item.name} (+ GHS ${item.price.toLocaleString()})`)
+              .join('\n')
+          : '  None';
+
+      const formattedDate = date.toDateString();
+      const slotLabel = fullDay
+        ? 'Full Day'
+        : SLOT_LABELS[selectedSlot as keyof typeof SLOT_LABELS] || selectedSlot;
+
+      const message = [
+        `Hi, I'd like to book a session.`,
+        ``,
+        `Package: ${categoryLabel} — ${tierName} (${tierPrice})`,
+        `Selected Add-ons:\n${addOnsText}`,
+        `Estimated Total: GHS ${totalPriceNum.toLocaleString()}`,
+        ``,
+        `Name: ${name}`,
+        `Email: ${email}`,
+        `Phone: ${phone}`,
+        `Preferred Date: ${formattedDate} — ${slotLabel}`,
+        `Booking Reference: ${result.bookingId}`,
+        ``,
+        `I have read and agreed to the terms and conditions.`,
+      ].join('\n');
+
+      window.open(
+        `https://wa.me/233205555084?text=${encodeURIComponent(message)}`,
+        '_blank'
+      );
+
+      onClose();
+    } catch (err) {
+      console.error('Booking submit error:', err);
+      setSubmitError('Something went wrong. Please try again.');
+      setSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -780,18 +893,33 @@ function BookingFormLightbox({
                 </div>
               </div>
 
-              {/* Preferred Date with ChronoSelect */}
+              {/* Preferred Date & Time Slot with ChronoSelect */}
               <div>
                 <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
-                  Preferred Date
+                  Preferred Date{!fullDay && ' & Time'}
                 </label>
                 <ChronoSelect
                   value={date}
                   onChange={setDate}
                   yearRange={[2026, 2035]}
-                  placeholder="Pick a booking date"
+                  placeholder={loadingAvailability ? 'Loading availability...' : 'Pick a booking date'}
+                  disabledDates={disabledDates}
+                  showSlots={true}
+                  availabilityMap={availabilityMap}
+                  selectedSlot={selectedSlot}
+                  onSlotChange={setSelectedSlot}
+                  isFullDay={fullDay}
                 />
               </div>
+
+              {/* Submit error */}
+              {submitError && (
+                <div className="bg-red-500/10 border border-red-500/20 px-3 py-2">
+                  <p className="text-red-400 text-[10px] font-mono tracking-wide">
+                    {submitError}
+                  </p>
+                </div>
+              )}
 
               {/* T&C checkbox */}
               <div className="flex items-start gap-2.5 pt-1">
@@ -832,7 +960,7 @@ function BookingFormLightbox({
                     }
                   `}
                 >
-                  Book via WhatsApp
+                  {submitting ? 'Booking...' : 'Book via WhatsApp'}
                 </button>
 
                 <p className="text-foreground/30 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
