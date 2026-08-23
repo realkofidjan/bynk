@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X } from 'lucide-react';
+import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2 } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 import { ChronoSelect } from '@/components/ui/chrono-select';
 import {
@@ -588,13 +589,15 @@ function BookingFormLightbox({
 
   const availableAddOns = categoryAddOns[categoryId] || [];
 
-  // Base price extraction
+  // Base price & deposit extraction
   const basePriceNum = parseInt(tierPrice.replace(/[^0-9]/g, ''), 10) || 0;
   const selectedAddOnsList = availableAddOns.filter((addon) =>
     selectedAddOnIds.includes(addon.id)
   );
   const addOnsTotal = selectedAddOnsList.reduce((sum, item) => sum + item.price, 0);
   const totalPriceNum = basePriceNum + addOnsTotal;
+  const depositGhs = Math.round((totalPriceNum * 50) / 100);
+  const remainingBalanceGhs = totalPriceNum - depositGhs;
 
   const toggleAddOn = (id: string) => {
     setSelectedAddOnIds((prev) =>
@@ -666,7 +669,7 @@ function BookingFormLightbox({
     const dateKey = toDateKey(date);
 
     try {
-      // POST to API to record the booking
+      // 1. Create pending booking in Supabase
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -687,50 +690,39 @@ function BookingFormLightbox({
 
       if (!res.ok) {
         setSubmitError(result.error || 'Booking failed. Please try again.');
-        // Refetch availability in case slots changed
         await fetchAvailability();
         setSubmitting(false);
         return;
       }
 
-      // Build WhatsApp message
-      const addOnsText =
-        selectedAddOnsList.length > 0
-          ? selectedAddOnsList
-              .map((item) => `  - ${item.name} (+ GHS ${item.price.toLocaleString()})`)
-              .join('\n')
-          : '  None';
+      // 2. Initialize Paystack payment for 50% deposit
+      const paystackRes = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: result.bookingId,
+          email,
+          totalPrice: totalPriceNum,
+          category: categoryLabel,
+          tier: tierName,
+          name,
+          phone,
+        }),
+      });
 
-      const formattedDate = date.toDateString();
-      const slotLabel = fullDay
-        ? 'Full Day'
-        : SLOT_LABELS[selectedSlot as keyof typeof SLOT_LABELS] || selectedSlot;
+      const paystackResult = await paystackRes.json();
 
-      const message = [
-        `Hi, I'd like to book a session.`,
-        ``,
-        `Package: ${categoryLabel} — ${tierName} (${tierPrice})`,
-        `Selected Add-ons:\n${addOnsText}`,
-        `Estimated Total: GHS ${totalPriceNum.toLocaleString()}`,
-        ``,
-        `Name: ${name}`,
-        `Email: ${email}`,
-        `Phone: ${phone}`,
-        `Preferred Date: ${formattedDate} — ${slotLabel}`,
-        `Booking Reference: ${result.bookingId}`,
-        ``,
-        `I have read and agreed to the terms and conditions.`,
-      ].join('\n');
+      if (!paystackRes.ok || !paystackResult.authorizationUrl) {
+        setSubmitError(paystackResult.error || 'Payment initialization failed. Please try again.');
+        setSubmitting(false);
+        return;
+      }
 
-      window.open(
-        `https://wa.me/233205555084?text=${encodeURIComponent(message)}`,
-        '_blank'
-      );
-
-      onClose();
+      // 3. Redirect client to Paystack checkout page
+      window.location.href = paystackResult.authorizationUrl;
     } catch (err) {
       console.error('Booking submit error:', err);
-      setSubmitError('Something went wrong. Please try again.');
+      setSubmitError('Something went wrong initializing payment. Please try again.');
       setSubmitting(false);
     }
   };
@@ -813,12 +805,28 @@ function BookingFormLightbox({
                 )}
 
                 <div className="flex items-baseline justify-between pt-2.5 border-t border-foreground/20">
-                  <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
-                    Total Price
+                  <span className="text-foreground/70 text-[10px] font-mono uppercase tracking-[0.2em]">
+                    Total Package Price
                   </span>
-                  <span className="text-foreground font-serif text-base font-bold">
+                  <span className="text-foreground font-serif text-sm font-medium">
                     GHS {totalPriceNum.toLocaleString()}
                   </span>
+                </div>
+
+                {/* 50% Deposit highlight */}
+                <div className="bg-foreground/[0.04] border border-foreground/20 p-2.5 space-y-1 mt-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
+                      50% Deposit Due Now
+                    </span>
+                    <span className="text-foreground font-serif text-base font-bold">
+                      GHS {depositGhs.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/50 pt-1 border-t border-foreground/10">
+                    <span>Balance on Shoot Date:</span>
+                    <span>GHS {remainingBalanceGhs.toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1009,11 +1017,13 @@ function BookingFormLightbox({
                     }
                   `}
                 >
-                  {submitting ? 'Booking...' : 'Book via WhatsApp'}
+                  {submitting
+                    ? 'Connecting to Paystack...'
+                    : `Pay 50% Deposit (GHS ${depositGhs.toLocaleString()})`}
                 </button>
 
-                <p className="text-foreground/30 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
-                  50% booking fee required to confirm
+                <p className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
+                  Secured by Paystack · Mobile Money, Cards &amp; Apple Pay
                 </p>
               </div>
             </div>
@@ -1375,6 +1385,109 @@ export default function BookPage() {
       <AnimatePresence>
         {showEnquiry && <EnquiryLightbox onClose={() => setShowEnquiry(false)} />}
       </AnimatePresence>
+
+      <Suspense fallback={null}>
+        <PaymentSuccessHandler />
+      </Suspense>
     </main>
+  );
+}
+
+/* ── Paystack Payment Success Return Handler ── */
+function PaymentSuccessHandler() {
+  const searchParams = useSearchParams();
+  const status = searchParams.get('status');
+  const bookingId = searchParams.get('bookingId');
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (status === 'payment_complete' && bookingId) {
+      setOpen(true);
+    }
+  }, [status, bookingId]);
+
+  if (!open || !bookingId) return null;
+
+  const handleOpenWhatsapp = () => {
+    const message = [
+      `Hi BYNK! I have completed my 50% deposit payment on Paystack.`,
+      ``,
+      `Booking Reference: ${bookingId}`,
+      `Please let me know once confirmed!`,
+    ].join('\n');
+
+    window.open(
+      `https://wa.me/233205555084?text=${encodeURIComponent(message)}`,
+      '_blank'
+    );
+    setOpen(false);
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        variants={overlayVariants}
+        initial="hidden"
+        animate="visible"
+        exit="hidden"
+        className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8"
+        onClick={() => setOpen(false)}
+      >
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+
+        <motion.div
+          variants={panelVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-md bg-background border border-foreground/20 shadow-2xl shadow-black/50 p-6 rounded-none text-center space-y-4"
+        >
+          <div className="flex justify-center text-foreground">
+            <CheckCircle2 className="w-12 h-12 stroke-[1.5]" />
+          </div>
+
+          <div>
+            <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
+              Payment Successful
+            </p>
+            <h2 className="text-xl font-serif tracking-tight text-foreground">
+              50% Deposit Received!
+            </h2>
+          </div>
+
+          <p className="text-foreground/70 text-xs font-mono leading-relaxed">
+            Thank you! Your 50% booking deposit has been processed securely via Paystack. Your booking slot is now reserved.
+          </p>
+
+          <div className="bg-foreground/[0.04] border border-foreground/15 p-3 font-mono text-[10px] space-y-1">
+            <div className="flex justify-between text-foreground/50">
+              <span>Booking ID:</span>
+              <span className="text-foreground font-semibold">{bookingId.slice(0, 13)}...</span>
+            </div>
+            <div className="flex justify-between text-foreground/50">
+              <span>Payment Provider:</span>
+              <span className="text-foreground">Paystack Ghana</span>
+            </div>
+          </div>
+
+          <div className="pt-2 space-y-2">
+            <button
+              onClick={handleOpenWhatsapp}
+              className="w-full py-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] hover:bg-foreground/90 transition-colors shadow-md cursor-pointer"
+            >
+              Send Confirmation to WhatsApp
+            </button>
+
+            <button
+              onClick={() => setOpen(false)}
+              className="w-full py-2.5 bg-transparent text-foreground/50 font-mono text-[9px] uppercase tracking-[0.2em] hover:text-foreground transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

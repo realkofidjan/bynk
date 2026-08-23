@@ -17,6 +17,8 @@ export type Booking = {
   phone: string;
   add_ons: string[]; // array of add-on IDs
   total_price: number;
+  deposit_amount?: number;
+  paystack_reference?: string;
   status: BookingStatus;
   full_day: boolean;
   created_at: string;
