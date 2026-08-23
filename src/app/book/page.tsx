@@ -309,84 +309,90 @@ const termsAndConditions = [
   },
   {
     number: '03',
-    title: 'Cancellation & Add-On Refunds',
+    title: 'Cancellation Policy',
     content:
-      'The cancellation deadline is at least 2 days (48 hours) prior to the scheduled shoot date. Base package booking fees (50% deposit) are non-refundable as they reserve the photographer\'s time and date. However, payments for add-ons are separate from the deposit and are 100% refundable if cancellation or add-on removal is requested at least 2 days before the shoot. Cancellations made less than 2 days before the shoot date do not qualify for add-on refunds.',
+      'The official cancellation window is at least 2 days (48 hours) prior to the scheduled shoot date. Base package booking fees (50% deposit) reserve the photographer\'s time and date and are non-refundable upon cancellation.',
   },
   {
     number: '04',
+    title: 'Add-Ons Policy & Refunds',
+    content:
+      'Add-ons are separate from the core package cost and do not count toward the 50% base package deposit. Payments for add-ons are 100% refundable if cancellation or add-on removal is requested at least 2 days (48 hours) before the shoot date. Cancellations made less than 2 days before the shoot date do not qualify for add-on refunds.',
+  },
+  {
+    number: '05',
     title: 'Client Delays',
     content:
       'Photography coverage begins at the agreed start time. Client delays do not automatically extend the booked coverage period. Where additional time is available, overtime may be charged at the applicable hourly rate.',
   },
   {
-    number: '05',
+    number: '06',
     title: 'Overtime',
     content:
       'Coverage beyond the selected package duration is subject to photographer availability. Additional hours are charged at the applicable overtime rate.',
   },
   {
-    number: '06',
+    number: '07',
     title: 'Image Delivery',
     content:
       'Estimated delivery timelines: Studio 5–10 working days; Real Estate 5–7 working days; Events 7–14 working days; Weddings 14–30 working days. Delivery times may vary depending on workload, assignment size and complexity. Rush delivery is available at an additional charge.',
   },
   {
-    number: '07',
+    number: '08',
     title: 'Image Selection & Retouching',
     content:
       'The number of professionally retouched photographs included in each package is clearly stated. Additional retouching may be purchased separately. Complex manipulation, extensive object removal or advanced Photoshop work may attract an additional charge.',
   },
   {
-    number: '08',
+    number: '09',
     title: 'RAW Files',
     content:
       'RAW/unprocessed camera files are not included in any package. Clients receive the professionally processed final images specified in their selected package.',
   },
   {
-    number: '09',
+    number: '10',
     title: 'Delivery & Backup',
     content:
       'Final photographs will be delivered through a private online gallery or agreed digital delivery method. Clients are responsible for downloading and securely backing up their photographs after delivery.',
   },
   {
-    number: '10',
+    number: '11',
     title: 'Copyright',
     content:
       'BYNK retains copyright ownership of all photographs created during an assignment unless otherwise agreed in writing. Clients receive a personal-use licence for delivered photographs. Commercial advertising, resale, publication or third-party licensing may require an additional commercial usage agreement.',
   },
   {
-    number: '11',
+    number: '12',
     title: 'Portfolio Use',
     content:
       'BYNK may use selected photographs for portfolio, website, social media, advertising and promotional purposes. Clients requiring complete privacy must communicate this before the photography session or event.',
   },
   {
-    number: '12',
+    number: '13',
     title: 'Weddings',
     content:
       'Clients are encouraged to provide a final wedding timeline before the event. Major changes to the agreed schedule or additional ceremonies may require additional coverage fees.',
   },
   {
-    number: '13',
+    number: '14',
     title: 'Outdoor Sessions & Weather',
     content:
       'For outdoor sessions, weather conditions may require the session to be rescheduled or moved to an alternative location. Rescheduling remains subject to availability.',
   },
   {
-    number: '14',
+    number: '15',
     title: 'Venue & Third-Party Costs',
     content:
       'Unless explicitly stated in the selected package, the client is responsible for venue fees, location permits, entrance fees, parking fees and other third-party charges.',
   },
   {
-    number: '15',
+    number: '16',
     title: 'Equipment & Unforeseen Circumstances',
     content:
       'BYNK takes reasonable measures to maintain professional equipment and backup arrangements. In the unlikely event of equipment failure, illness, accident or another circumstance beyond reasonable control, every reasonable effort will be made to complete the assignment or provide an appropriate alternative.',
   },
   {
-    number: '16',
+    number: '17',
     title: 'Commercial Usage',
     content:
       'Photography intended for commercial campaigns, advertising, billboards, publications or third-party commercial use may require a separate licensing agreement. Real estate packages include normal usage for the marketing and listing of the photographed property.',
