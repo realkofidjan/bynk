@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Camera, Heart, Sparkles, Building, X } from 'lucide-react';
+import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X } from 'lucide-react';
 
 /* ────────────────────────────────────────
    Rate Card Data — from NK_Photography_2026_Rate_Card.docx
@@ -77,9 +77,60 @@ const categories: Category[] = [
     ],
   },
   {
+    id: 'location-portraits',
+    label: 'Location Portraits',
+    number: '02',
+    icon: <MapPin className="w-3 h-3" />,
+    tiers: [
+      {
+        name: 'Signature',
+        price: 'GHS 1,000',
+        duration: 'Up to 1 hour · 1 location · 1 outfit',
+        features: [
+          'Individual portrait session',
+          'Professional portable lighting setup',
+          'Guided posing & creative direction',
+          '10 edited · 5 retouched images',
+          'Private online gallery',
+          'High-resolution digital delivery',
+        ],
+        note: 'Simple portraits, outdoor birthdays, personal content',
+      },
+      {
+        name: 'Lux',
+        price: 'GHS 1,500',
+        duration: 'Up to 1.5 hours · 1–2 locations · 2 outfits',
+        bestValue: true,
+        features: [
+          '1–2 locations within close proximity',
+          'Professional portable lighting setup',
+          'Guided posing & creative direction',
+          '20 edited · 10 retouched images',
+          'Private online gallery',
+          '5 preview images within 48 hours',
+        ],
+        note: 'Personal branding, fashion portraits, outdoor sessions',
+      },
+      {
+        name: 'Platinum',
+        price: 'GHS 2,200',
+        duration: 'Up to 2.5 hours · Up to 2 locations · 3 outfits',
+        features: [
+          'Up to 2 locations & multiple lighting setups',
+          'Full creative direction & guided posing',
+          '30 edited · 15 retouched images',
+          'Private online gallery',
+          '5 priority images within 48 hours',
+          'High-resolution digital delivery',
+        ],
+        note: 'Editorial portraits, fashion sessions, creative campaigns',
+      },
+    ],
+  },
+  {
     id: 'weddings',
     label: 'Weddings',
-    number: '02',
+    number: '03',
     icon: <Heart className="w-3 h-3" />,
     tiers: [
       {
@@ -130,7 +181,7 @@ const categories: Category[] = [
   {
     id: 'events',
     label: 'Events',
-    number: '03',
+    number: '04',
     icon: <Sparkles className="w-3 h-3" />,
     tiers: [
       {
@@ -181,7 +232,7 @@ const categories: Category[] = [
   {
     id: 'realestate',
     label: 'Real Estate',
-    number: '04',
+    number: '05',
     icon: <Building className="w-3 h-3" />,
     tiers: [
       {
