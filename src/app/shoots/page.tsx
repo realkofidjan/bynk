@@ -97,9 +97,9 @@ export default function ShootsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono">
+    <main className="min-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono pt-20 sm:pt-24 pb-12">
       {/* Header Bar */}
-      <header className="border-b border-foreground/10 bg-background/80 backdrop-blur-md sticky top-0 z-40 px-6 sm:px-12 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="border-b border-foreground/10 bg-background/90 backdrop-blur-md px-6 sm:px-12 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-foreground/40 text-[9px] uppercase tracking-[0.3em] mb-1">
             BYNK Photography · Admin Dashboard
