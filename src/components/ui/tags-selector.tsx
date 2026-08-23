@@ -38,6 +38,10 @@ export function TagsSelector({ tags, selectedTags: externalSelected, onSelectedT
     updateSelectedTags([...selectedTags, tag]);
   };
 
+  const clearAllTags = () => {
+    updateSelectedTags([]);
+  };
+
   useEffect(() => {
     if (selectedsContainerRef.current) {
       selectedsContainerRef.current.scrollTo({
@@ -49,8 +53,22 @@ export function TagsSelector({ tags, selectedTags: externalSelected, onSelectedT
 
   return (
     <div className="w-full flex flex-col">
+      {selectedTags.length > 0 && (
+        <div className="flex items-center justify-between px-0.5 mb-1">
+          <span className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em]">
+            Selected ({selectedTags.length})
+          </span>
+          <button
+            type="button"
+            onClick={clearAllTags}
+            className="text-foreground/40 hover:text-foreground text-[9px] font-mono uppercase tracking-[0.15em] underline underline-offset-2 transition-colors cursor-pointer"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
       <motion.div
-        className="w-full flex items-center justify-start gap-1.5 bg-background border border-foreground/10 min-h-12 mt-1 mb-2 overflow-x-auto p-1.5 no-scrollbar rounded-none"
+        className="w-full flex items-center justify-start gap-1.5 bg-background border border-foreground/10 min-h-12 mt-0.5 mb-2 overflow-x-auto p-1.5 no-scrollbar rounded-none"
         ref={selectedsContainerRef}
         layout
       >
