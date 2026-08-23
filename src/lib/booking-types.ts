@@ -4,7 +4,7 @@
 
 export type TimeSlot = 'morning' | 'afternoon' | 'full_day';
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled';
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
 
 export type Booking = {
   id: string;
