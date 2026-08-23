@@ -490,14 +490,71 @@ function TermsLightbox({ onClose }: { onClose: () => void }) {
   );
 }
 
+/* ── Add-Ons Data ── */
+type AddOn = {
+  id: string;
+  name: string;
+  price: number;
+  priceLabel?: string;
+};
+
+const categoryAddOns: Record<string, AddOn[]> = {
+  portraits: [
+    { id: 'outfit', name: 'Additional Outfit', price: 150 },
+    { id: 'retouched', name: 'Additional Retouched Image', price: 50 },
+    { id: 'edited', name: 'Additional Edited Image', price: 30 },
+    { id: 'studio-hour', name: 'Additional Studio Hour', price: 350 },
+    { id: 'person', name: 'Additional Person', price: 100, priceLabel: 'From GHS 100' },
+    { id: 'concept', name: 'Concept & Creative Direction', price: 300, priceLabel: 'From GHS 300' },
+    { id: 'makeup', name: 'Makeup Artist', price: 500, priceLabel: 'From GHS 500' },
+  ],
+  'location-portraits': [
+    { id: 'outfit', name: 'Additional Outfit', price: 150 },
+    { id: 'retouched', name: 'Additional Retouched Image', price: 50 },
+    { id: 'edited', name: 'Additional Edited Image', price: 30 },
+    { id: 'hour', name: 'Additional Coverage Hour', price: 300 },
+    { id: 'location', name: 'Additional Location', price: 200, priceLabel: 'From GHS 200' },
+    { id: 'concept', name: 'Concept & Creative Direction', price: 300, priceLabel: 'From GHS 300' },
+    { id: 'makeup', name: 'Makeup Artist', price: 500, priceLabel: 'From GHS 500' },
+  ],
+  weddings: [
+    { id: 'hour', name: 'Additional Coverage Hour', price: 350 },
+    { id: 'photographer', name: 'Second Photographer', price: 700 },
+    { id: 'prewedding', name: 'Pre-Wedding Session', price: 1000 },
+    { id: 'engagement', name: 'Traditional / Engagement Ceremony Coverage', price: 1500, priceLabel: 'From GHS 1,500' },
+    { id: 'shower', name: 'Bridal Shower / Bachelorette Coverage', price: 1200, priceLabel: 'From GHS 1,200' },
+    { id: 'retouched', name: 'Additional Retouched Image', price: 50 },
+    { id: 'album', name: 'Premium Wedding Album', price: 1500, priceLabel: 'From GHS 1,500' },
+    { id: 'print', name: 'Framed Print', price: 500, priceLabel: 'From GHS 500' },
+    { id: 'rush', name: 'Rush Wedding Delivery', price: 500, priceLabel: 'From GHS 500' },
+  ],
+  events: [
+    { id: 'hour', name: 'Additional Coverage Hour', price: 350 },
+    { id: 'photographer', name: 'Second Photographer', price: 700 },
+    { id: 'same-day', name: 'Same-Day Preview Collection', price: 400 },
+    { id: 'rush', name: 'Rush Delivery', price: 400, priceLabel: 'From GHS 400' },
+    { id: 'retouched', name: 'Additional Retouched Image', price: 50 },
+  ],
+  realestate: [
+    { id: 'property', name: 'Additional Property at Same Location', price: 600, priceLabel: 'From GHS 600' },
+    { id: 'images', name: 'Additional 10 Edited Images', price: 200 },
+    { id: 'twilight', name: 'Twilight Photography', price: 400 },
+    { id: 'reel', name: 'Property Social Media Reel', price: 600, priceLabel: 'From GHS 600' },
+    { id: 'drone-photo', name: 'Drone Photography', price: 800, priceLabel: 'From GHS 800' },
+    { id: 'drone-video', name: 'Drone Video', price: 1000, priceLabel: 'From GHS 1,000' },
+  ],
+};
+
 /* ── Booking Form Lightbox ── */
 function BookingFormLightbox({
+  categoryId,
   categoryLabel,
   tierName,
   tierPrice,
   onClose,
   onOpenTerms,
 }: {
+  categoryId: string;
   categoryLabel: string;
   tierName: string;
   tierPrice: string;
@@ -509,6 +566,23 @@ function BookingFormLightbox({
   const [phone, setPhone] = useState('');
   const [date, setDate] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+
+  const availableAddOns = categoryAddOns[categoryId] || [];
+
+  // Base price extraction
+  const basePriceNum = parseInt(tierPrice.replace(/[^0-9]/g, ''), 10) || 0;
+  const selectedAddOnsList = availableAddOns.filter((addon) =>
+    selectedAddOnIds.includes(addon.id)
+  );
+  const addOnsTotal = selectedAddOnsList.reduce((sum, item) => sum + item.price, 0);
+  const totalPriceNum = basePriceNum + addOnsTotal;
+
+  const toggleAddOn = (id: string) => {
+    setSelectedAddOnIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   const isValid = name.trim() && email.trim() && phone.trim() && date && agreedToTerms;
 
@@ -516,10 +590,20 @@ function BookingFormLightbox({
     e.preventDefault();
     if (!isValid) return;
 
+    const addOnsText =
+      selectedAddOnsList.length > 0
+        ? selectedAddOnsList
+            .map((item) => `  - ${item.name} (+ GHS ${item.price.toLocaleString()})`)
+            .join('\n')
+        : '  None';
+
     const message = [
       `Hi, I'd like to book a session.`,
       ``,
       `Package: ${categoryLabel} — ${tierName} (${tierPrice})`,
+      `Selected Add-ons:\n${addOnsText}`,
+      `Estimated Total: GHS ${totalPriceNum.toLocaleString()}`,
+      ``,
       `Name: ${name}`,
       `Email: ${email}`,
       `Phone: ${phone}`,
@@ -564,10 +648,10 @@ function BookingFormLightbox({
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md bg-background border border-foreground/[0.08]"
+        className="relative w-full max-w-md max-h-[85vh] bg-background border border-foreground/[0.08] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06] shrink-0">
           <div>
             <p className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
               {categoryLabel} · {tierName}
@@ -584,17 +668,74 @@ function BookingFormLightbox({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-          {/* Package summary */}
-          <div className="flex items-baseline justify-between pb-4 border-b border-foreground/[0.06]">
-            <span className="text-foreground/40 text-[10px] font-mono uppercase tracking-[0.15em]">
-              Selected Package
-            </span>
-            <span className="text-foreground font-serif text-sm">
-              {tierPrice}
-            </span>
+        {/* Scrollable Form */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* Package summary & Total Price */}
+          <div className="bg-foreground/[0.02] border border-foreground/[0.06] p-3 space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-foreground/50 text-[10px] font-mono uppercase tracking-[0.15em]">
+                Base Package ({tierName})
+              </span>
+              <span className="text-foreground font-serif text-sm">
+                {tierPrice}
+              </span>
+            </div>
+
+            {selectedAddOnsList.length > 0 && (
+              <div className="flex items-baseline justify-between pt-1 border-t border-foreground/[0.04] text-[10px] font-mono">
+                <span className="text-foreground/40 uppercase tracking-wider">
+                  Add-ons ({selectedAddOnsList.length})
+                </span>
+                <span className="text-foreground/70">
+                  + GHS {addOnsTotal.toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-baseline justify-between pt-2 border-t border-foreground/10">
+              <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
+                Total Price
+              </span>
+              <span className="text-foreground font-serif text-base font-semibold">
+                GHS {totalPriceNum.toLocaleString()}
+              </span>
+            </div>
           </div>
+
+          {/* Add-ons selection section */}
+          {availableAddOns.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <label className="block text-foreground/40 text-[9px] font-mono uppercase tracking-[0.25em]">
+                Optional Add-Ons
+              </label>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto border border-foreground/10 p-2 divide-y divide-foreground/[0.04]">
+                {availableAddOns.map((addon) => {
+                  const isChecked = selectedAddOnIds.includes(addon.id);
+                  return (
+                    <label
+                      key={addon.id}
+                      className="flex items-center justify-between py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleAddOn(addon.id)}
+                          className="w-3.5 h-3.5 accent-foreground cursor-pointer shrink-0"
+                        />
+                        <span className="text-foreground/70 text-[10px] font-mono tracking-wide">
+                          {addon.name}
+                        </span>
+                      </div>
+                      <span className="text-foreground/50 text-[10px] font-mono shrink-0 pl-2">
+                        {addon.priceLabel || `+ GHS ${addon.price.toLocaleString()}`}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Name */}
           <div>
@@ -840,6 +981,7 @@ export default function BookPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [showEnquiry, setShowEnquiry] = useState(false);
   const [bookingTier, setBookingTier] = useState<{
+    categoryId: string;
     categoryLabel: string;
     tierName: string;
     tierPrice: string;
@@ -988,6 +1130,7 @@ export default function BookPage() {
                   <button
                     onClick={() =>
                       setBookingTier({
+                        categoryId: active.id,
                         categoryLabel: active.label,
                         tierName: tier.name,
                         tierPrice: tier.price,
@@ -1041,6 +1184,7 @@ export default function BookPage() {
       <AnimatePresence>
         {bookingTier && (
           <BookingFormLightbox
+            categoryId={bookingTier.categoryId}
             categoryLabel={bookingTier.categoryLabel}
             tierName={bookingTier.tierName}
             tierPrice={bookingTier.tierPrice}
