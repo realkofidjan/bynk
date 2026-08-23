@@ -55,53 +55,53 @@ export function TagsSelector({ tags, selectedTags: externalSelected, onSelectedT
     <div className="w-full flex flex-col">
       {selectedTags.length > 0 && (
         <div className="flex items-center justify-between px-0.5 mb-1">
-          <span className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em]">
+          <span className="text-foreground/70 text-[9px] font-mono uppercase tracking-[0.15em] font-medium">
             Selected ({selectedTags.length})
           </span>
           <button
             type="button"
             onClick={clearAllTags}
-            className="text-foreground/40 hover:text-foreground text-[9px] font-mono uppercase tracking-[0.15em] underline underline-offset-2 transition-colors cursor-pointer"
+            className="text-foreground/60 hover:text-foreground text-[9px] font-mono uppercase tracking-[0.15em] underline underline-offset-2 transition-colors cursor-pointer"
           >
             Clear all
           </button>
         </div>
       )}
       <motion.div
-        className="w-full flex items-center justify-start gap-1.5 bg-background border border-foreground/10 min-h-12 mt-0.5 mb-2 overflow-x-auto p-1.5 no-scrollbar rounded-none"
+        className="w-full flex items-center justify-start gap-1.5 bg-background border border-foreground/20 min-h-12 mt-0.5 mb-2 overflow-x-auto p-1.5 no-scrollbar rounded-none"
         ref={selectedsContainerRef}
         layout
       >
         {selectedTags.length === 0 && (
-          <span className="text-foreground/30 text-[10px] font-mono uppercase tracking-[0.15em] px-2">
+          <span className="text-foreground/40 text-[10px] font-mono uppercase tracking-[0.15em] px-2">
             No add-ons selected
           </span>
         )}
         {selectedTags.map((tag) => (
           <motion.div
             key={tag.id}
-            className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 bg-foreground/5 border border-foreground/10 shrink-0 rounded-none"
+            className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 bg-foreground/10 border border-foreground/20 shrink-0 rounded-none"
             layoutId={`tag-${tag.id}`}
           >
             <motion.span
               layoutId={`tag-${tag.id}-label`}
-              className="text-foreground text-[10px] font-mono"
+              className="text-foreground text-[10px] font-mono font-medium"
             >
               {tag.label}
             </motion.span>
             <button
               type="button"
               onClick={() => removeSelectedTag(tag.id)}
-              className="p-0.5 rounded-none hover:bg-foreground/10 transition-colors"
+              className="p-0.5 rounded-none hover:bg-foreground/20 transition-colors cursor-pointer"
             >
-              <X className="size-3 text-foreground/60" />
+              <X className="size-3 text-foreground/80" />
             </button>
           </motion.div>
         ))}
       </motion.div>
       {tags.length > selectedTags.length && (
         <motion.div
-          className="bg-background p-2 border border-foreground/10 w-full rounded-none"
+          className="bg-background p-2 border border-foreground/20 w-full rounded-none"
           layout
         >
           <motion.div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
@@ -115,12 +115,12 @@ export function TagsSelector({ tags, selectedTags: externalSelected, onSelectedT
                   type="button"
                   key={tag.id}
                   layoutId={`tag-${tag.id}`}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-foreground/[0.04] hover:bg-foreground/[0.08] border border-foreground/[0.06] rounded-none shrink-0 transition-colors text-left"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-foreground/[0.04] hover:bg-foreground/[0.1] border border-foreground/15 rounded-none shrink-0 transition-colors text-left cursor-pointer"
                   onClick={() => addSelectedTag(tag)}
                 >
                   <motion.span
                     layoutId={`tag-${tag.id}-label`}
-                    className="text-foreground/80 text-[10px] font-mono tracking-wide"
+                    className="text-foreground/90 text-[10px] font-mono tracking-wide"
                   >
                     {tag.label}
                   </motion.span>

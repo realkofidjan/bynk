@@ -67,16 +67,16 @@ export function ChronoSelect({
         <Button
           variant="outline"
           className={cn(
-            "w-full justify-start text-left font-mono text-[11px] h-10 border-foreground/10 bg-transparent rounded-none hover:bg-foreground/5 hover:text-foreground text-foreground transition-colors",
+            "w-full justify-start text-left font-mono text-[11px] h-10 border-foreground/20 bg-foreground/[0.03] hover:bg-foreground/[0.05] focus:bg-background rounded-none hover:text-foreground text-foreground transition-colors",
             !selected && "text-foreground/30",
             className,
           )}
         >
-          <CalendarIcon className="mr-2 h-3.5 w-3.5 text-foreground/50 shrink-0" />
+          <CalendarIcon className="mr-2 h-3.5 w-3.5 text-foreground/70 shrink-0" />
           {selected ? format(selected, "PPP") : placeholder}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="p-2 space-y-2 w-auto border-foreground/10 bg-background rounded-none z-[80]">
+      <PopoverContent align="start" className="p-2 space-y-2 w-auto border-foreground/20 bg-background shadow-xl rounded-none z-[80]">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-mono font-medium text-foreground">
             {format(month, "MMMM")}
@@ -85,10 +85,10 @@ export function ChronoSelect({
             defaultValue={String(month.getFullYear())}
             onValueChange={handleYearChange}
           >
-            <SelectTrigger className="h-7 w-[90px] text-xs font-mono rounded-none border-foreground/10">
+            <SelectTrigger className="h-7 w-[90px] text-xs font-mono rounded-none border-foreground/20 bg-background">
               <SelectValue placeholder="Year" />
             </SelectTrigger>
-            <SelectContent className="max-h-48 border-foreground/10 bg-background rounded-none z-[90]">
+            <SelectContent className="max-h-48 border-foreground/20 bg-background rounded-none z-[90]">
               {years.map((year) => (
                 <SelectItem key={year} value={String(year)} className="text-xs font-mono rounded-none">
                   {year}
@@ -103,7 +103,7 @@ export function ChronoSelect({
           onSelect={handleSelect}
           month={month}
           onMonthChange={setMonth}
-          className="rounded-none border border-foreground/10"
+          className="rounded-none border border-foreground/15"
         />
       </PopoverContent>
     </Popover>

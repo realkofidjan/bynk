@@ -631,7 +631,7 @@ function BookingFormLightbox({
   }, [onClose]);
 
   const inputClasses =
-    'w-full bg-transparent border border-foreground/10 px-3 py-2 text-foreground text-[11px] font-mono tracking-wide placeholder:text-foreground/20 focus:outline-none focus:border-foreground/30 transition-colors h-10';
+    'w-full bg-foreground/[0.03] hover:bg-foreground/[0.05] focus:bg-background border border-foreground/20 focus:border-foreground px-3 py-2 text-foreground text-[11px] font-mono tracking-wide placeholder:text-foreground/30 focus:outline-none transition-colors h-10 rounded-none';
 
   return (
     <motion.div
@@ -643,7 +643,7 @@ function BookingFormLightbox({
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
 
       {/* Panel */}
       <motion.div
@@ -652,12 +652,12 @@ function BookingFormLightbox({
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[75vw] max-h-[85vh] bg-background border border-foreground/[0.08] flex flex-col"
+        className="relative w-full max-w-[75vw] max-h-[85vh] bg-background border border-foreground/20 shadow-2xl shadow-black/50 flex flex-col rounded-none"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/10 shrink-0">
           <div>
-            <p className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
+            <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
               {categoryLabel} · {tierName}
             </p>
             <h2 className="text-lg font-serif tracking-tight text-foreground">
@@ -666,7 +666,7 @@ function BookingFormLightbox({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-foreground/30 hover:text-foreground transition-colors cursor-pointer"
+            className="p-2 text-foreground/50 hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -678,32 +678,32 @@ function BookingFormLightbox({
             {/* Left Column: Package Details, Add-ons & Total Price */}
             <div className="space-y-4">
               {/* Package summary & Total Price */}
-              <div className="bg-foreground/[0.02] border border-foreground/[0.06] p-4 space-y-3">
+              <div className="bg-foreground/[0.04] border border-foreground/15 p-4 space-y-3">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-foreground/50 text-[10px] font-mono uppercase tracking-[0.15em]">
+                  <span className="text-foreground/70 text-[10px] font-mono uppercase tracking-[0.15em]">
                     Base Package ({tierName})
                   </span>
-                  <span className="text-foreground font-serif text-sm">
+                  <span className="text-foreground font-serif text-sm font-medium">
                     {tierPrice}
                   </span>
                 </div>
 
                 {selectedAddOnsList.length > 0 && (
-                  <div className="flex items-baseline justify-between pt-2 border-t border-foreground/[0.04] text-[10px] font-mono">
-                    <span className="text-foreground/40 uppercase tracking-wider">
+                  <div className="flex items-baseline justify-between pt-2 border-t border-foreground/10 text-[10px] font-mono">
+                    <span className="text-foreground/60 uppercase tracking-wider">
                       Add-ons ({selectedAddOnsList.length})
                     </span>
-                    <span className="text-foreground/70">
+                    <span className="text-foreground/80 font-medium">
                       + GHS {addOnsTotal.toLocaleString()}
                     </span>
                   </div>
                 )}
 
-                <div className="flex items-baseline justify-between pt-2.5 border-t border-foreground/10">
+                <div className="flex items-baseline justify-between pt-2.5 border-t border-foreground/20">
                   <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
                     Total Price
                   </span>
-                  <span className="text-foreground font-serif text-base font-semibold">
+                  <span className="text-foreground font-serif text-base font-bold">
                     GHS {totalPriceNum.toLocaleString()}
                   </span>
                 </div>
@@ -712,7 +712,7 @@ function BookingFormLightbox({
               {/* Add-ons selection section */}
               {availableAddOns.length > 0 && (
                 <div className="space-y-1.5">
-                  <label className="block text-foreground/40 text-[9px] font-mono uppercase tracking-[0.25em]">
+                  <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] font-medium">
                     Optional Add-Ons
                   </label>
                   <TagsSelector
@@ -736,7 +736,7 @@ function BookingFormLightbox({
             <div className="space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
                   Full Name
                 </label>
                 <input
@@ -752,7 +752,7 @@ function BookingFormLightbox({
               {/* Email & Phone side by side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                  <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
                     Email
                   </label>
                   <input
@@ -766,7 +766,7 @@ function BookingFormLightbox({
                 </div>
 
                 <div>
-                  <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                  <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
                     Phone Number
                   </label>
                   <input
@@ -782,7 +782,7 @@ function BookingFormLightbox({
 
               {/* Preferred Date with ChronoSelect */}
               <div>
-                <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
                   Preferred Date
                 </label>
                 <ChronoSelect
@@ -804,13 +804,13 @@ function BookingFormLightbox({
                 />
                 <label
                   htmlFor="agree-terms"
-                  className="text-foreground/40 text-[10px] font-mono tracking-wide cursor-pointer leading-relaxed"
+                  className="text-foreground/70 text-[10px] font-mono tracking-wide cursor-pointer leading-relaxed"
                 >
                   I have read and agree to the{' '}
                   <button
                     type="button"
                     onClick={onOpenTerms}
-                    className="text-foreground/60 underline underline-offset-2 hover:text-foreground transition-colors"
+                    className="text-foreground font-medium underline underline-offset-2 hover:opacity-80 transition-opacity"
                   >
                     Terms &amp; Conditions
                   </button>
@@ -827,15 +827,15 @@ function BookingFormLightbox({
                     border transition-all duration-300
                     ${
                       isValid
-                        ? 'bg-foreground text-background border-foreground hover:bg-foreground/90 cursor-pointer'
-                        : 'bg-transparent text-foreground/20 border-foreground/10 cursor-not-allowed'
+                        ? 'bg-foreground text-background border-foreground hover:bg-foreground/90 cursor-pointer shadow-md'
+                        : 'bg-transparent text-foreground/30 border-foreground/15 cursor-not-allowed'
                     }
                   `}
                 >
                   Book via WhatsApp
                 </button>
 
-                <p className="text-foreground/15 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
+                <p className="text-foreground/30 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
                   50% booking fee required to confirm
                 </p>
               </div>
@@ -879,7 +879,7 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   const inputClasses =
-    'w-full bg-transparent border border-foreground/10 px-3 py-2.5 text-foreground text-[11px] font-mono tracking-wide placeholder:text-foreground/20 focus:outline-none focus:border-foreground/30 transition-colors';
+    'w-full bg-foreground/[0.03] hover:bg-foreground/[0.05] focus:bg-background border border-foreground/20 focus:border-foreground px-3 py-2 text-foreground text-[11px] font-mono tracking-wide placeholder:text-foreground/30 focus:outline-none transition-colors rounded-none';
 
   return (
     <motion.div
@@ -890,7 +890,7 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
 
       <motion.div
         variants={panelVariants}
@@ -898,12 +898,12 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md bg-background border border-foreground/[0.08]"
+        className="relative w-full max-w-md bg-background border border-foreground/20 shadow-2xl shadow-black/50 rounded-none"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/10">
           <div>
-            <p className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
+            <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
               Custom Packages
             </p>
             <h2 className="text-lg font-serif tracking-tight text-foreground">
@@ -912,7 +912,7 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-foreground/30 hover:text-foreground transition-colors"
+            className="p-2 text-foreground/40 hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -921,7 +921,7 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
         {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5">
+            <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5 font-medium">
               Your Name
             </label>
             <input
@@ -929,13 +929,13 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Full name"
-              className={inputClasses}
+              className={`${inputClasses} h-10`}
               required
             />
           </div>
 
           <div>
-            <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5">
+            <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5 font-medium">
               Message
             </label>
             <textarea
@@ -943,7 +943,7 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Describe what you're looking for — type of shoot, location, number of people, any special requirements..."
               rows={5}
-              className={`${inputClasses} resize-none leading-relaxed`}
+              className={`${inputClasses} resize-none leading-relaxed py-2.5`}
               required
             />
           </div>
@@ -956,8 +956,8 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
               border transition-all duration-300
               ${
                 isValid
-                  ? 'bg-foreground text-background border-foreground hover:bg-foreground/90 cursor-pointer'
-                  : 'bg-transparent text-foreground/20 border-foreground/10 cursor-not-allowed'
+                  ? 'bg-foreground text-background border-foreground hover:bg-foreground/90 cursor-pointer shadow-md'
+                  : 'bg-transparent text-foreground/30 border-foreground/15 cursor-not-allowed'
               }
             `}
           >
