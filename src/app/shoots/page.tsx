@@ -64,39 +64,56 @@ export default function ShootsPage() {
     setPage(1);
   };
 
-  const handleSendEmail = async (bookingId: string, clientEmail: string) => {
-    setSendingEmailId(bookingId);
+  const handleSendWhatsAppLink = async (shoot: Booking) => {
+    setSendingEmailId(shoot.id);
     setEmailNotice(null);
 
     try {
       const res = await fetch('/api/shoots/send-payment-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({ bookingId: shoot.id }),
       });
 
       const data = await res.json();
+      const paystackUrl = data.authorizationUrl;
 
-      if (!res.ok) {
+      if (paystackUrl) {
+        const [y, m, d] = shoot.date.split('-').map(Number);
+        const formattedDate = new Date(y, m - 1, d).toDateString();
+        const depositPaid = shoot.deposit_amount || 0;
+        const remainingBalance = Math.max(0, shoot.total_price - depositPaid);
+
+        const waText = [
+          `Hi ${shoot.name}, regarding your upcoming ${shoot.category} (${shoot.tier}) photography shoot on ${formattedDate}:`,
+          ``,
+          `Here is your Paystack link to complete your remaining balance of GHS ${remainingBalance.toLocaleString()}:`,
+          `${paystackUrl}`,
+          ``,
+          `Thank you! — BYNK Photography`,
+        ].join('\n');
+
+        window.open(
+          `https://wa.me/${shoot.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waText)}`,
+          '_blank'
+        );
+
         setEmailNotice({
-          id: bookingId,
-          msg: data.error || 'Failed to send email',
-          type: 'error',
-          url: data.authorizationUrl,
+          id: shoot.id,
+          msg: `Paystack balance link generated & opened in WhatsApp!`,
+          type: 'success',
+          url: paystackUrl,
         });
       } else {
         setEmailNotice({
-          id: bookingId,
-          msg: data.simulated
-            ? `Paystack balance payment link created!`
-            : `Email dispatched to ${clientEmail}!`,
-          type: 'success',
-          url: data.authorizationUrl,
+          id: shoot.id,
+          msg: data.error || 'Failed to generate Paystack payment link',
+          type: 'error',
         });
       }
     } catch (err: any) {
-      console.error('Send email error:', err);
-      setEmailNotice({ id: bookingId, msg: 'Error generating payment link', type: 'error' });
+      console.error('WhatsApp balance link error:', err);
+      setEmailNotice({ id: shoot.id, msg: 'Error generating payment link', type: 'error' });
     } finally {
       setSendingEmailId(null);
     }
@@ -293,14 +310,14 @@ export default function ShootsPage() {
 
                     {activeTab === 'upcoming' && remainingBalance > 0 && (
                       <button
-                        onClick={() => handleSendEmail(shoot.id, shoot.email)}
+                        onClick={() => handleSendWhatsAppLink(shoot)}
                         disabled={sendingEmailId === shoot.id}
                         className="px-4 py-2 bg-foreground text-background text-[10px] uppercase tracking-[0.2em] font-semibold hover:bg-foreground/90 transition-all flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
                       >
-                        <Mail className="w-3 h-3" />
+                        <MessageSquare className="w-3.5 h-3.5" />
                         {sendingEmailId === shoot.id
                           ? 'Generating Link...'
-                          : `Send Payment Email (GHS ${remainingBalance.toLocaleString()})`}
+                          : `Send 50% Balance via WhatsApp (GHS ${remainingBalance.toLocaleString()})`}
                       </button>
                     )}
                   </div>
