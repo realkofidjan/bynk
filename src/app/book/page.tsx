@@ -317,7 +317,7 @@ const termsAndConditions = [
     number: '04',
     title: 'Add-Ons Policy & Refunds',
     content:
-      'Add-ons are separate from the core package cost and do not count toward the 50% base package deposit. Payments for add-ons are 100% refundable if cancellation or add-on removal is requested at least 2 days (48 hours) before the shoot date. Cancellations made less than 2 days before the shoot date do not qualify for add-on refunds.',
+      'Add-ons are separate from the core package cost and do not count toward the 50% base package deposit. Add-ons cannot be individually removed or modified once booked. However, add-on payments are 100% refundable if full shoot cancellation is requested at least 2 days (48 hours) prior to the shoot date. Cancellations made less than 2 days before the shoot date do not qualify for add-on refunds.',
   },
   {
     number: '05',
