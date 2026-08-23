@@ -648,7 +648,7 @@ function BookingFormLightbox({
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md max-h-[85vh] bg-background border border-foreground/[0.08] flex flex-col"
+        className="relative w-full max-w-3xl max-h-[90vh] bg-background border border-foreground/[0.08] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06] shrink-0">
@@ -668,178 +668,189 @@ function BookingFormLightbox({
           </button>
         </div>
 
-        {/* Scrollable Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-          {/* Package summary & Total Price */}
-          <div className="bg-foreground/[0.02] border border-foreground/[0.06] p-3 space-y-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-foreground/50 text-[10px] font-mono uppercase tracking-[0.15em]">
-                Base Package ({tierName})
-              </span>
-              <span className="text-foreground font-serif text-sm">
-                {tierPrice}
-              </span>
-            </div>
+        {/* Scrollable Form (Landscape 2-Column Grid on Desktop) */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            {/* Left Column: Package Details, Add-ons & Total Price */}
+            <div className="space-y-4">
+              {/* Package summary & Total Price */}
+              <div className="bg-foreground/[0.02] border border-foreground/[0.06] p-4 space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-foreground/50 text-[10px] font-mono uppercase tracking-[0.15em]">
+                    Base Package ({tierName})
+                  </span>
+                  <span className="text-foreground font-serif text-sm">
+                    {tierPrice}
+                  </span>
+                </div>
 
-            {selectedAddOnsList.length > 0 && (
-              <div className="flex items-baseline justify-between pt-1 border-t border-foreground/[0.04] text-[10px] font-mono">
-                <span className="text-foreground/40 uppercase tracking-wider">
-                  Add-ons ({selectedAddOnsList.length})
-                </span>
-                <span className="text-foreground/70">
-                  + GHS {addOnsTotal.toLocaleString()}
-                </span>
+                {selectedAddOnsList.length > 0 && (
+                  <div className="flex items-baseline justify-between pt-2 border-t border-foreground/[0.04] text-[10px] font-mono">
+                    <span className="text-foreground/40 uppercase tracking-wider">
+                      Add-ons ({selectedAddOnsList.length})
+                    </span>
+                    <span className="text-foreground/70">
+                      + GHS {addOnsTotal.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-baseline justify-between pt-2.5 border-t border-foreground/10">
+                  <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
+                    Total Price
+                  </span>
+                  <span className="text-foreground font-serif text-base font-semibold">
+                    GHS {totalPriceNum.toLocaleString()}
+                  </span>
+                </div>
               </div>
-            )}
 
-            <div className="flex items-baseline justify-between pt-2 border-t border-foreground/10">
-              <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
-                Total Price
-              </span>
-              <span className="text-foreground font-serif text-base font-semibold">
-                GHS {totalPriceNum.toLocaleString()}
-              </span>
+              {/* Add-ons selection section */}
+              {availableAddOns.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-foreground/40 text-[9px] font-mono uppercase tracking-[0.25em]">
+                    Optional Add-Ons
+                  </label>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto border border-foreground/10 p-2 divide-y divide-foreground/[0.04]">
+                    {availableAddOns.map((addon) => {
+                      const isChecked = selectedAddOnIds.includes(addon.id);
+                      return (
+                        <label
+                          key={addon.id}
+                          className="flex items-center justify-between py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleAddOn(addon.id)}
+                              className="w-3.5 h-3.5 accent-foreground cursor-pointer shrink-0"
+                            />
+                            <span className="text-foreground/70 text-[10px] font-mono tracking-wide">
+                              {addon.name}
+                            </span>
+                          </div>
+                          <span className="text-foreground/50 text-[10px] font-mono shrink-0 pl-2">
+                            {addon.priceLabel || `+ GHS ${addon.price.toLocaleString()}`}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Add-ons selection section */}
-          {availableAddOns.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <label className="block text-foreground/40 text-[9px] font-mono uppercase tracking-[0.25em]">
-                Optional Add-Ons
-              </label>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto border border-foreground/10 p-2 divide-y divide-foreground/[0.04]">
-                {availableAddOns.map((addon) => {
-                  const isChecked = selectedAddOnIds.includes(addon.id);
-                  return (
-                    <label
-                      key={addon.id}
-                      className="flex items-center justify-between py-1.5 px-1 cursor-pointer hover:bg-foreground/[0.02] transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleAddOn(addon.id)}
-                          className="w-3.5 h-3.5 accent-foreground cursor-pointer shrink-0"
-                        />
-                        <span className="text-foreground/70 text-[10px] font-mono tracking-wide">
-                          {addon.name}
-                        </span>
-                      </div>
-                      <span className="text-foreground/50 text-[10px] font-mono shrink-0 pl-2">
-                        {addon.priceLabel || `+ GHS ${addon.price.toLocaleString()}`}
-                      </span>
-                    </label>
-                  );
-                })}
+            {/* Right Column: User Details, Terms & Submit */}
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  className={inputClasses}
+                  required
+                />
+              </div>
+
+              {/* Email & Phone side by side */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className={inputClasses}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+233 XX XXX XXXX"
+                    className={inputClasses}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Preferred Date */}
+              <div>
+                <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1">
+                  Preferred Date
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={`${inputClasses} appearance-none`}
+                  required
+                />
+              </div>
+
+              {/* T&C checkbox */}
+              <div className="flex items-start gap-2.5 pt-1">
+                <input
+                  type="checkbox"
+                  id="agree-terms"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 w-3.5 h-3.5 accent-foreground cursor-pointer shrink-0"
+                />
+                <label
+                  htmlFor="agree-terms"
+                  className="text-foreground/40 text-[10px] font-mono tracking-wide cursor-pointer leading-relaxed"
+                >
+                  I have read and agree to the{' '}
+                  <button
+                    type="button"
+                    onClick={onOpenTerms}
+                    className="text-foreground/60 underline underline-offset-2 hover:text-foreground transition-colors"
+                  >
+                    Terms &amp; Conditions
+                  </button>
+                </label>
+              </div>
+
+              {/* Submit */}
+              <div>
+                <button
+                  type="submit"
+                  disabled={!isValid}
+                  className={`
+                    w-full py-3 font-mono text-[10px] uppercase tracking-[0.25em] 
+                    border transition-all duration-300
+                    ${
+                      isValid
+                        ? 'bg-foreground text-background border-foreground hover:bg-foreground/90 cursor-pointer'
+                        : 'bg-transparent text-foreground/20 border-foreground/10 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  Book via WhatsApp
+                </button>
+
+                <p className="text-foreground/15 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
+                  50% booking fee required to confirm
+                </p>
               </div>
             </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              className={inputClasses}
-              required
-            />
           </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className={inputClasses}
-              required
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+233 XX XXX XXXX"
-              className={inputClasses}
-              required
-            />
-          </div>
-
-          {/* Preferred Date */}
-          <div>
-            <label className="block text-foreground/30 text-[9px] font-mono uppercase tracking-[0.25em] mb-1.5">
-              Preferred Date
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={`${inputClasses} appearance-none`}
-              required
-            />
-          </div>
-
-          {/* T&C checkbox */}
-          <div className="flex items-start gap-2.5 pt-1">
-            <input
-              type="checkbox"
-              id="agree-terms"
-              checked={agreedToTerms}
-              onChange={(e) => setAgreedToTerms(e.target.checked)}
-              className="mt-0.5 w-3.5 h-3.5 accent-foreground cursor-pointer shrink-0"
-            />
-            <label
-              htmlFor="agree-terms"
-              className="text-foreground/40 text-[10px] font-mono tracking-wide cursor-pointer leading-relaxed"
-            >
-              I have read and agree to the{' '}
-              <button
-                type="button"
-                onClick={onOpenTerms}
-                className="text-foreground/60 underline underline-offset-2 hover:text-foreground transition-colors"
-              >
-                Terms &amp; Conditions
-              </button>
-            </label>
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={!isValid}
-            className={`
-              w-full py-3 mt-2 font-mono text-[10px] uppercase tracking-[0.25em] 
-              border transition-all duration-300
-              ${
-                isValid
-                  ? 'bg-foreground text-background border-foreground hover:bg-foreground/90 cursor-pointer'
-                  : 'bg-transparent text-foreground/20 border-foreground/10 cursor-not-allowed'
-              }
-            `}
-          >
-            Book via WhatsApp
-          </button>
-
-          <p className="text-foreground/15 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-1">
-            50% booking fee required to confirm
-          </p>
         </form>
       </motion.div>
     </motion.div>
