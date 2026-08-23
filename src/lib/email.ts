@@ -101,11 +101,23 @@ export async function sendBalancePaymentEmail({
     </html>
   `;
 
-  // 1. Try Nodemailer SMTP if configured
-  if (smtpTransporter) {
+  // 1. Try Nodemailer SMTP if configured with a real password
+  const hasRealSmtpPass = process.env.SMTP_PASS && !process.env.SMTP_PASS.includes('your_') && process.env.SMTP_PASS !== 'xxxx xxxx xxxx xxxx';
+  
+  if (process.env.SMTP_USER && hasRealSmtpPass) {
     try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp-mail.outlook.com',
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
       const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-      await smtpTransporter.sendMail({
+      await transporter.sendMail({
         from: `BYNK Photography <${fromEmail}>`,
         to: toEmail,
         subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
@@ -115,6 +127,10 @@ export async function sendBalancePaymentEmail({
       return { success: true, provider: 'smtp' };
     } catch (err: any) {
       console.error('Nodemailer SMTP error:', err);
+      return {
+        success: false,
+        error: `Outlook/SMTP Error: ${err.message || 'Authentication failed. Please verify your Outlook password.'}`,
+      };
     }
   }
 
@@ -133,7 +149,7 @@ export async function sendBalancePaymentEmail({
         console.error('Resend email error:', error);
         return {
           success: false,
-          error: error.message || 'Resend domain error. To send to external domains without a custom domain, configure Gmail SMTP (SMTP_USER & SMTP_PASS) in .env.local',
+          error: error.message || 'Resend domain error.',
         };
       }
 
