@@ -19,7 +19,7 @@ export default function ShootsPage() {
 
   // Email sending state
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
-  const [emailNotice, setEmailNotice] = useState<{ id: string; msg: string; type: 'success' | 'error' } | null>(null);
+  const [emailNotice, setEmailNotice] = useState<{ id: string; msg: string; type: 'success' | 'error'; url?: string } | null>(null);
 
   const fetchShoots = useCallback(async () => {
     try {
@@ -78,19 +78,25 @@ export default function ShootsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setEmailNotice({ id: bookingId, msg: data.error || 'Failed to send email', type: 'error' });
+        setEmailNotice({
+          id: bookingId,
+          msg: data.error || 'Failed to send email',
+          type: 'error',
+          url: data.authorizationUrl,
+        });
       } else {
         setEmailNotice({
           id: bookingId,
           msg: data.simulated
-            ? `Simulated email (Resend API key needed to dispatch live to ${clientEmail})`
-            : `Email sent successfully to ${clientEmail}!`,
+            ? `Paystack balance payment link created!`
+            : `Email dispatched to ${clientEmail}!`,
           type: 'success',
+          url: data.authorizationUrl,
         });
       }
     } catch (err: any) {
       console.error('Send email error:', err);
-      setEmailNotice({ id: bookingId, msg: 'Error sending email', type: 'error' });
+      setEmailNotice({ id: bookingId, msg: 'Error generating payment link', type: 'error' });
     } finally {
       setSendingEmailId(null);
     }
@@ -299,21 +305,47 @@ export default function ShootsPage() {
                     )}
                   </div>
 
-                  {/* Email Feedback Notice */}
+                  {/* Email Feedback & Payment Link Actions */}
                   {emailNotice && emailNotice.id === shoot.id && (
                     <div
-                      className={`text-[10px] p-2.5 border flex items-center gap-2 ${
+                      className={`text-[10px] p-3 border space-y-2 ${
                         emailNotice.type === 'success'
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                          : 'bg-red-500/10 text-red-400 border-red-500/30'
+                          : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                       }`}
                     >
-                      {emailNotice.type === 'success' ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <div className="flex items-center gap-2">
+                        {emailNotice.type === 'success' ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        )}
+                        <span className="font-medium">{emailNotice.msg}</span>
+                      </div>
+
+                      {emailNotice.url && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-foreground/10">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(emailNotice.url!);
+                              alert('Paystack balance payment link copied to clipboard!');
+                            }}
+                            className="px-2.5 py-1 bg-foreground/10 hover:bg-foreground/20 text-foreground border border-foreground/20 text-[9px] uppercase tracking-wider transition-colors cursor-pointer"
+                          >
+                            Copy Payment Link
+                          </button>
+
+                          <a
+                            href={`https://wa.me/${shoot.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${shoot.name}, here is your link to pay the remaining balance of GHS ${remainingBalance.toLocaleString()} for your shoot on ${formattedDate}: ${emailNotice.url}`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[9px] uppercase tracking-wider transition-colors"
+                          >
+                            Send Balance Link via WhatsApp
+                          </a>
+                        </div>
                       )}
-                      <span>{emailNotice.msg}</span>
                     </div>
                   )}
                 </div>

@@ -1,6 +1,20 @@
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// SMTP transporter (Gmail/Outlook/custom SMTP)
+const smtpTransporter = process.env.SMTP_USER && process.env.SMTP_PASS
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    })
+  : null;
 
 export type BalanceEmailParams = {
   toEmail: string;
@@ -15,6 +29,7 @@ export type BalanceEmailParams = {
 
 /**
  * Send balance payment email to client with Paystack authorization URL.
+ * Works with Nodemailer (SMTP/Gmail) or Resend API.
  */
 export async function sendBalancePaymentEmail({
   toEmail,
@@ -26,17 +41,6 @@ export async function sendBalancePaymentEmail({
   remainingBalanceGhs,
   paystackAuthorizationUrl,
 }: BalanceEmailParams) {
-  if (!resend) {
-    console.warn('RESEND_API_KEY is not configured. Email will be logged to console:');
-    console.log({
-      to: toEmail,
-      clientName,
-      remainingBalanceGhs,
-      paystackAuthorizationUrl,
-    });
-    return { success: true, simulated: true };
-  }
-
   const html = `
     <!DOCTYPE html>
     <html>
@@ -97,22 +101,51 @@ export async function sendBalancePaymentEmail({
     </html>
   `;
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'BYNK Photography <onboarding@resend.dev>',
-      to: [toEmail],
-      subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
-      html,
-    });
+  // 1. Try Nodemailer SMTP if configured
+  if (smtpTransporter) {
+    try {
+      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+      await smtpTransporter.sendMail({
+        from: `BYNK Photography <${fromEmail}>`,
+        to: toEmail,
+        subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
+        html,
+      });
 
-    if (error) {
-      console.error('Resend email error:', error);
-      return { success: false, error: error.message };
+      return { success: true, provider: 'smtp' };
+    } catch (err: any) {
+      console.error('Nodemailer SMTP error:', err);
     }
-
-    return { success: true, emailId: data?.id };
-  } catch (err: any) {
-    console.error('Email send exception:', err);
-    return { success: false, error: err.message };
   }
+
+  // 2. Try Resend if configured
+  if (resend) {
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'BYNK Photography <onboarding@resend.dev>';
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromAddress,
+        to: [toEmail],
+        subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
+        html,
+      });
+
+      if (error) {
+        console.error('Resend email error:', error);
+        return {
+          success: false,
+          error: error.message || 'Resend domain error. To send to external domains without a custom domain, configure Gmail SMTP (SMTP_USER & SMTP_PASS) in .env.local',
+        };
+      }
+
+      return { success: true, provider: 'resend', emailId: data?.id };
+    } catch (err: any) {
+      console.error('Resend exception:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // 3. Fallback: Log to console if neither is configured
+  console.warn('Neither SMTP nor Resend is configured. Logged to console:');
+  console.log({ to: toEmail, clientName, remainingBalanceGhs, paystackAuthorizationUrl });
+  return { success: true, simulated: true };
 }
