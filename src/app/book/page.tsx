@@ -297,9 +297,9 @@ const categories: Category[] = [
 const termsAndConditions = [
   {
     number: '01',
-    title: 'Booking',
+    title: 'Booking & Deposit',
     content:
-      'A 50% non-refundable booking fee is required to secure your date. A date is only considered confirmed once payment has been received. The remaining balance must be settled before photography coverage begins unless another arrangement has been agreed upon in writing.',
+      'A 50% non-refundable deposit of the base package price is required to secure your date. Optional add-ons are billed separately and paid 100% upfront at the time of booking — they do not count toward the 50% package deposit. A date is confirmed once payment has been received. The remaining 50% balance of the base package must be settled before photography coverage begins.',
   },
   {
     number: '02',
@@ -309,9 +309,9 @@ const termsAndConditions = [
   },
   {
     number: '03',
-    title: 'Cancellation',
+    title: 'Cancellation & Add-On Refunds',
     content:
-      'Booking fees are non-refundable because they reserve the photographer\'s time and prevent the date from being offered to another client. Cancellation of a confirmed booking does not automatically entitle the client to a refund of the booking fee.',
+      'The cancellation deadline is at least 2 days (48 hours) prior to the scheduled shoot date. Base package booking fees (50% deposit) are non-refundable as they reserve the photographer\'s time and date. However, payments for add-ons are separate from the deposit and are 100% refundable if cancellation or add-on removal is requested at least 2 days before the shoot. Cancellations made less than 2 days before the shoot date do not qualify for add-on refunds.',
   },
   {
     number: '04',
