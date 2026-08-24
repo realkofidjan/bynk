@@ -51,13 +51,17 @@ export function ChronoSelect({
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }, [yearRange])
 
-  // Build the disabled matchers for react-day-picker
+  // Build the disabled matchers for react-day-picker (Enforce min 4-day advance notice)
   const disabledMatchers = React.useMemo(() => {
+    const minNoticeDate = new Date()
+    minNoticeDate.setHours(0, 0, 0, 0)
+    minNoticeDate.setDate(minNoticeDate.getDate() + 4)
+
     const matchers: Array<Date | { dayOfWeek: number[] } | { before: Date }> = [
       // All Sundays
       { dayOfWeek: [0] },
-      // Past dates
-      { before: new Date() },
+      // Dates less than 4 days from today
+      { before: minNoticeDate },
       // Fully blocked dates
       ...disabledDates,
     ]

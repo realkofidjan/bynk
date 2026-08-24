@@ -68,11 +68,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sundays are unavailable for booking' }, { status: 400 });
     }
 
-    // Check if date is in the past
+    // Enforce 4-day advance notice requirement
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (bookingDate < today) {
-      return NextResponse.json({ error: 'Cannot book dates in the past' }, { status: 400 });
+
+    const minNoticeDate = new Date(today);
+    minNoticeDate.setDate(today.getDate() + 4);
+
+    if (bookingDate < minNoticeDate) {
+      return NextResponse.json(
+        { error: 'Bookings must be scheduled at least 4 days in advance.' },
+        { status: 400 }
+      );
     }
 
     const supabase = createServerSupabase();
