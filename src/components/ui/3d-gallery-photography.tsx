@@ -252,18 +252,21 @@ function GalleryScene({
 		[visibleCount]
 	);
 
+	const { viewport } = useThree();
+	const isNarrowScreen = viewport.width < 5;
+
 	const spatialPositions = useMemo(() => {
 		const positions: { x: number; y: number }[] = [];
-		const maxHorizontalOffset = MAX_HORIZONTAL_OFFSET;
-		const maxVerticalOffset = MAX_VERTICAL_OFFSET;
+		const maxHorizontalOffset = isNarrowScreen ? 3.2 : MAX_HORIZONTAL_OFFSET;
+		const maxVerticalOffset = isNarrowScreen ? 3.5 : MAX_VERTICAL_OFFSET;
 
 		for (let i = 0; i < visibleCount; i++) {
 			// Create varied distribution patterns for both axes
 			const horizontalAngle = (i * 2.618) % (Math.PI * 2); // Golden angle for natural distribution
 			const verticalAngle = (i * 1.618 + Math.PI / 3) % (Math.PI * 2); // Offset angle for vertical
 
-			const horizontalRadius = (i % 3) * 1.2; // Vary the distance from center
-			const verticalRadius = ((i + 1) % 4) * 0.8; // Different pattern for vertical
+			const horizontalRadius = (i % 3) * (isNarrowScreen ? 0.7 : 1.2); // Vary the distance from center
+			const verticalRadius = ((i + 1) % 4) * (isNarrowScreen ? 0.6 : 0.8); // Different pattern for vertical
 
 			const x =
 				(Math.sin(horizontalAngle) * horizontalRadius * maxHorizontalOffset) /
@@ -275,7 +278,7 @@ function GalleryScene({
 		}
 
 		return positions;
-	}, [visibleCount]);
+	}, [visibleCount, isNarrowScreen]);
 
 	const totalImages = normalizedImages.length;
 	const depthRange = DEFAULT_DEPTH_RANGE;
@@ -304,26 +307,26 @@ function GalleryScene({
 		}));
 	}, [depthRange, spatialPositions, totalImages, visibleCount]);
 
-	// Handle scroll input
+	// Handle scroll input (Reversed direction)
 	const handleWheel = useCallback(
 		(event: WheelEvent) => {
 			event.preventDefault();
-			setScrollVelocity((prev) => prev + event.deltaY * 0.01 * speed);
+			setScrollVelocity((prev) => prev - event.deltaY * 0.01 * speed);
 			setAutoPlay(false);
 			lastInteraction.current = Date.now();
 		},
 		[speed]
 	);
 
-	// Handle keyboard input
+	// Handle keyboard input (Reversed direction)
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-				setScrollVelocity((prev) => prev - 2 * speed);
+				setScrollVelocity((prev) => prev + 2 * speed);
 				setAutoPlay(false);
 				lastInteraction.current = Date.now();
 			} else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-				setScrollVelocity((prev) => prev + 2 * speed);
+				setScrollVelocity((prev) => prev - 2 * speed);
 				setAutoPlay(false);
 				lastInteraction.current = Date.now();
 			}
@@ -331,7 +334,7 @@ function GalleryScene({
 		[speed]
 	);
 
-	// Handle touch drag / swipe input for mobile screens
+	// Handle touch drag / swipe input for mobile screens (Reversed direction)
 	const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
 	const handleTouchStart = useCallback((event: TouchEvent) => {
@@ -358,7 +361,7 @@ function GalleryScene({
 			// Determine dominant swipe direction (vertical vs horizontal)
 			const delta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
 
-			setScrollVelocity((prev) => prev + delta * 0.02 * speed);
+			setScrollVelocity((prev) => prev - delta * 0.02 * speed);
 
 			touchStartRef.current = { x: currentX, y: currentY };
 			setAutoPlay(false);
@@ -543,11 +546,12 @@ function GalleryScene({
 
 				const worldZ = plane.z - depthRange / 2;
 
-				// Calculate scale to maintain aspect ratio
+				// Calculate scale to maintain aspect ratio & fit narrow screens
 				const imgEl = texture?.image as { width?: number; height?: number } | undefined;
 				const aspect = imgEl?.width && imgEl?.height ? imgEl.width / imgEl.height : 1;
+				const baseScale = isNarrowScreen ? 1.4 : 2.0;
 				const scale: [number, number, number] =
-					aspect > 1 ? [2 * aspect, 2, 1] : [2, 2 / aspect, 1];
+					aspect > 1 ? [baseScale * aspect, baseScale, 1] : [baseScale, baseScale / aspect, 1];
 
 				return (
 					<ImagePlane
