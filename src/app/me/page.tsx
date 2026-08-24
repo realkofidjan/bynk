@@ -39,7 +39,7 @@ const socials = [
 
 export default function MePage() {
   return (
-    <main id="me-page" className="min-h-screen lg:h-screen bg-background relative flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-start overflow-hidden selection:bg-foreground/20 pt-24 pb-4 px-4 lg:pt-28 lg:pb-8 lg:px-12 xl:px-16">
+    <main id="me-page" className="h-screen bg-background relative flex flex-col lg:flex-row items-center lg:items-end justify-center lg:justify-start overflow-hidden selection:bg-foreground/20 pt-24 pb-4 px-4 lg:pt-28 lg:pb-8 lg:px-12 xl:px-16">
       {/* Background Ambient Glow */}
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 

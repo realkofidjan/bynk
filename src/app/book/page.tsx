@@ -1282,7 +1282,7 @@ export default function BookPage() {
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 
       {/* Content container */}
-      <div className="relative z-10 flex flex-col h-full pt-20 sm:pt-24 pb-6 px-4 sm:px-10 lg:px-16 overflow-y-auto sm:overflow-hidden">
+      <div className="relative z-10 flex flex-col h-full pt-20 sm:pt-24 pb-6 px-4 sm:px-10 lg:px-16 overflow-hidden">
         {/* Header row */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
