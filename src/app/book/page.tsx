@@ -1370,48 +1370,47 @@ export default function BookPage() {
                       key={tier.name}
                       className={`
                         w-full min-w-full shrink-0 snap-center snap-always bg-background border border-foreground/20
-                        p-5 flex flex-col justify-between shadow-xl transition-all duration-300
+                        p-6 flex flex-col justify-between items-center text-center shadow-xl transition-all duration-300
                         ${tier.bestValue ? 'border-foreground/40 bg-foreground/[0.02]' : ''}
                       `}
                     >
-                      <div className="flex-1 flex flex-col">
-                        <div className="flex items-baseline justify-between mb-1">
-                          <h2 className="text-base font-serif tracking-tight text-foreground font-semibold">
+                      <div className="flex-1 flex flex-col items-center text-center w-full">
+                        <div className="flex flex-col items-center justify-center gap-1 mb-2">
+                          <h2 className="text-lg font-serif tracking-tight text-foreground font-semibold">
                             {tier.name}
                           </h2>
                           {tier.bestValue && (
-                            <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground bg-foreground/10 border border-foreground/30 px-2 py-0.5 font-medium">
+                            <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground bg-foreground/10 border border-foreground/30 px-2.5 py-0.5 font-medium">
                               Best Value
                             </span>
                           )}
                         </div>
 
-                        <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.15em] mb-3">
+                        <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.15em] mb-3 text-center">
                           {tier.duration}
                         </p>
 
-                        <div className="mb-3">
-                          <span className="text-2xl font-serif tracking-tight text-foreground font-semibold">
+                        <div className="mb-3 text-center">
+                          <span className="text-2xl sm:text-3xl font-serif tracking-tight text-foreground font-semibold">
                             {tier.price}
                           </span>
                         </div>
 
-                        <div className="w-8 h-px bg-foreground/15 mb-3" />
+                        <div className="w-12 h-px bg-foreground/15 mb-4 mx-auto" />
 
-                        <ul className="space-y-2 flex-1">
+                        <ul className="space-y-2 flex-1 w-full max-w-[280px] mx-auto text-center flex flex-col items-center justify-center">
                           {tier.features.map((f) => (
                             <li
                               key={f}
-                              className="text-foreground/70 text-[11px] font-mono tracking-wide flex items-start gap-2"
+                              className="text-foreground/70 text-[11px] font-mono tracking-wide text-center"
                             >
-                              <span className="text-foreground/30 mt-px shrink-0">—</span>
-                              <span>{f}</span>
+                              {f}
                             </li>
                           ))}
                         </ul>
 
                         {tier.note && (
-                          <p className="mt-3 text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] italic border-t border-foreground/10 pt-2">
+                          <p className="mt-3 text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] italic border-t border-foreground/10 pt-2 text-center w-full">
                             {tier.note}
                           </p>
                         )}
@@ -1427,7 +1426,7 @@ export default function BookPage() {
                             tierPrice: tier.price,
                           })
                         }
-                        className="mt-4 w-full py-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                        className="mt-5 w-full py-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
                       >
                         Book {tier.name}
                         <ArrowRight className="w-3.5 h-3.5" />
