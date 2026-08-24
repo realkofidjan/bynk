@@ -230,7 +230,9 @@ function GalleryScene({
 		maxBlur: 3.0,
 	},
 }: Omit<InfiniteGalleryProps, 'className' | 'style'>) {
-	const scrollVelocityRef = useRef(0.8);
+	const [scrollVelocity, setScrollVelocity] = useState(0);
+	const [autoPlay, setAutoPlay] = useState(true);
+	const lastInteraction = useRef(Date.now());
 
 	// Normalize images to objects
 	const normalizedImages = useMemo(
@@ -250,21 +252,18 @@ function GalleryScene({
 		[visibleCount]
 	);
 
-	const { viewport } = useThree();
-	const isNarrowScreen = viewport.width < 5;
-
 	const spatialPositions = useMemo(() => {
 		const positions: { x: number; y: number }[] = [];
-		const maxHorizontalOffset = isNarrowScreen ? 3.2 : MAX_HORIZONTAL_OFFSET;
-		const maxVerticalOffset = isNarrowScreen ? 3.5 : MAX_VERTICAL_OFFSET;
+		const maxHorizontalOffset = MAX_HORIZONTAL_OFFSET;
+		const maxVerticalOffset = MAX_VERTICAL_OFFSET;
 
 		for (let i = 0; i < visibleCount; i++) {
 			// Create varied distribution patterns for both axes
 			const horizontalAngle = (i * 2.618) % (Math.PI * 2); // Golden angle for natural distribution
 			const verticalAngle = (i * 1.618 + Math.PI / 3) % (Math.PI * 2); // Offset angle for vertical
 
-			const horizontalRadius = (i % 3) * (isNarrowScreen ? 0.7 : 1.2); // Vary the distance from center
-			const verticalRadius = ((i + 1) % 4) * (isNarrowScreen ? 0.6 : 0.8); // Different pattern for vertical
+			const horizontalRadius = (i % 3) * 1.2; // Vary the distance from center
+			const verticalRadius = ((i + 1) % 4) * 0.8; // Different pattern for vertical
 
 			const x =
 				(Math.sin(horizontalAngle) * horizontalRadius * maxHorizontalOffset) /
@@ -276,7 +275,7 @@ function GalleryScene({
 		}
 
 		return positions;
-	}, [visibleCount, isNarrowScreen]);
+	}, [visibleCount]);
 
 	const totalImages = normalizedImages.length;
 	const depthRange = DEFAULT_DEPTH_RANGE;
@@ -305,99 +304,64 @@ function GalleryScene({
 		}));
 	}, [depthRange, spatialPositions, totalImages, visibleCount]);
 
-	// Handle scroll input (Reversed direction)
+	// Handle scroll input
 	const handleWheel = useCallback(
 		(event: WheelEvent) => {
 			event.preventDefault();
-			scrollVelocityRef.current -= event.deltaY * 0.02 * speed;
+			setScrollVelocity((prev) => prev + event.deltaY * 0.01 * speed);
+			setAutoPlay(false);
+			lastInteraction.current = Date.now();
 		},
 		[speed]
 	);
 
-	// Handle keyboard input (Reversed direction)
+	// Handle keyboard input
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-				scrollVelocityRef.current += 3.5 * speed;
+				setScrollVelocity((prev) => prev - 2 * speed);
+				setAutoPlay(false);
+				lastInteraction.current = Date.now();
 			} else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-				scrollVelocityRef.current -= 3.5 * speed;
+				setScrollVelocity((prev) => prev + 2 * speed);
+				setAutoPlay(false);
+				lastInteraction.current = Date.now();
 			}
 		},
 		[speed]
 	);
-
-	// Handle touch drag / swipe input for mobile screens (Reversed direction)
-	const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-	const handleTouchStart = useCallback((event: TouchEvent) => {
-		if (event.touches.length === 1) {
-			touchStartRef.current = {
-				x: event.touches[0].clientX,
-				y: event.touches[0].clientY,
-			};
-		}
-	}, []);
-
-	const handleTouchMove = useCallback(
-		(event: TouchEvent) => {
-			if (!touchStartRef.current || event.touches.length !== 1) return;
-
-			const currentX = event.touches[0].clientX;
-			const currentY = event.touches[0].clientY;
-
-			const deltaX = touchStartRef.current.x - currentX;
-			const deltaY = touchStartRef.current.y - currentY;
-
-			// Determine dominant swipe direction (vertical vs horizontal)
-			const delta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
-
-			// Direct high-sensitivity touch velocity update
-			scrollVelocityRef.current -= delta * 0.08 * speed;
-
-			touchStartRef.current = { x: currentX, y: currentY };
-		},
-		[speed]
-	);
-
-	const handleTouchEnd = useCallback(() => {
-		touchStartRef.current = null;
-	}, []);
 
 	useEffect(() => {
 		const canvas = document.querySelector('canvas');
-
-		window.addEventListener('touchstart', handleTouchStart, { passive: true });
-		window.addEventListener('touchmove', handleTouchMove, { passive: true });
-		window.addEventListener('touchend', handleTouchEnd, { passive: true });
-		document.addEventListener('keydown', handleKeyDown);
-
 		if (canvas) {
 			canvas.addEventListener('wheel', handleWheel, { passive: false });
-		}
+			document.addEventListener('keydown', handleKeyDown);
 
-		return () => {
-			window.removeEventListener('touchstart', handleTouchStart);
-			window.removeEventListener('touchmove', handleTouchMove);
-			window.removeEventListener('touchend', handleTouchEnd);
-			document.removeEventListener('keydown', handleKeyDown);
-			if (canvas) {
+			return () => {
 				canvas.removeEventListener('wheel', handleWheel);
+				document.removeEventListener('keydown', handleKeyDown);
+			};
+		}
+	}, [handleWheel, handleKeyDown]);
+
+	// Auto-play logic
+	useEffect(() => {
+		const interval = setInterval(() => {
+			if (Date.now() - lastInteraction.current > 3000) {
+				setAutoPlay(true);
 			}
-		};
-	}, [handleWheel, handleKeyDown, handleTouchStart, handleTouchMove, handleTouchEnd]);
+		}, 1000);
+		return () => clearInterval(interval);
+	}, []);
 
 	useFrame((state, delta) => {
-		// Target continuous auto-play speed so it NEVER freezes or stagnates
-		const targetAutoSpeed = 0.8 * speed;
+		// Apply auto-play
+		if (autoPlay) {
+			setScrollVelocity((prev) => prev + 0.3 * delta);
+		}
 
-		// Smoothly lerp velocity back to target auto-play speed after user swipe
-		scrollVelocityRef.current = THREE.MathUtils.lerp(
-			scrollVelocityRef.current,
-			targetAutoSpeed,
-			Math.min(delta * 4, 0.1)
-		);
-
-		const scrollVelocity = scrollVelocityRef.current;
+		// Damping
+		setScrollVelocity((prev) => prev * 0.95);
 
 		// Update time uniform for all materials
 		const time = state.clock.getElapsedTime();
@@ -415,7 +379,7 @@ function GalleryScene({
 		const halfRange = totalRange / 2;
 
 		planesData.current.forEach((plane, i) => {
-			let newZ = plane.z + scrollVelocity * delta * 15;
+			let newZ = plane.z + scrollVelocity * delta * 10;
 			let wrapsForward = 0;
 			let wrapsBackward = 0;
 
@@ -529,12 +493,11 @@ function GalleryScene({
 
 				const worldZ = plane.z - depthRange / 2;
 
-				// Calculate scale to maintain aspect ratio & fit narrow screens
+				// Calculate scale to maintain aspect ratio
 				const imgEl = texture?.image as { width?: number; height?: number } | undefined;
 				const aspect = imgEl?.width && imgEl?.height ? imgEl.width / imgEl.height : 1;
-				const baseScale = isNarrowScreen ? 1.4 : 2.0;
 				const scale: [number, number, number] =
-					aspect > 1 ? [baseScale * aspect, baseScale, 1] : [baseScale, baseScale / aspect, 1];
+					aspect > 1 ? [2 * aspect, 2, 1] : [2, 2 / aspect, 1];
 
 				return (
 					<ImagePlane
@@ -586,13 +549,13 @@ export default function InfiniteGallery({
 	style,
 	onImageClick,
 	fadeSettings = {
-		fadeIn: { start: 0.02, end: 0.15 },
-		fadeOut: { start: 0.85, end: 0.98 },
+		fadeIn: { start: 0.05, end: 0.25 },
+		fadeOut: { start: 0.4, end: 0.43 },
 	},
 	blurSettings = {
 		blurIn: { start: 0.0, end: 0.1 },
-		blurOut: { start: 0.85, end: 0.98 },
-		maxBlur: 3.0,
+		blurOut: { start: 0.4, end: 0.43 },
+		maxBlur: 8.0,
 	},
 }: InfiniteGalleryProps) {
 	const [webglSupported, setWebglSupported] = useState(true);
@@ -651,8 +614,7 @@ if (typeof window !== 'undefined') {
 		>
 			<Canvas
 				camera={{ position: [0, 0, 0], fov: 55 }}
-				gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-				dpr={[1, 1.5]}
+				gl={{ antialias: true, alpha: true }}
 			>
 				<Suspense fallback={null}>
 					<GalleryScene
