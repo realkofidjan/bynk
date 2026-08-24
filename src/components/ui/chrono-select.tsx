@@ -96,7 +96,7 @@ export function ChronoSelect({
           <span className="truncate">{selected ? format(selected, "PPP") : placeholder}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="p-2 space-y-2 w-auto border-foreground/20 bg-background shadow-xl rounded-none z-[80]">
+      <PopoverContent align="start" className="p-2 space-y-2 w-auto border-foreground/20 bg-background shadow-2xl rounded-none z-[300]">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-mono font-medium text-foreground">
             {format(month, "MMMM")}
@@ -108,7 +108,7 @@ export function ChronoSelect({
             <SelectTrigger className="h-7 w-[90px] text-xs font-mono rounded-none border-foreground/20 bg-background">
               <SelectValue placeholder="Year" />
             </SelectTrigger>
-            <SelectContent className="max-h-48 border-foreground/20 bg-background rounded-none z-[90]">
+            <SelectContent className="max-h-48 border-foreground/20 bg-background rounded-none z-[350]">
               {years.map((year) => (
                 <SelectItem key={year} value={String(year)} className="text-xs font-mono rounded-none">
                   {year}
