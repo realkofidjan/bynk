@@ -1276,7 +1276,7 @@ export default function BookPage() {
   const closeTerms = useCallback(() => setShowTerms(false), []);
 
   return (
-    <main className="h-screen bg-background relative flex flex-col overflow-hidden selection:bg-foreground/20">
+    <main className="h-screen bg-background relative flex flex-col overflow-hidden overscroll-none selection:bg-foreground/20">
 
       {/* Ambient glow */}
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />

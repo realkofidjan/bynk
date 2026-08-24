@@ -80,6 +80,9 @@
 
 html {
   scroll-behavior: smooth;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
@@ -87,6 +90,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   overflow-x: hidden;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
