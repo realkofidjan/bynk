@@ -25,10 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    // Calculate remaining balance
-    // total_price - deposit_amount
-    const depositPaid = booking.deposit_amount || 0;
-    const remainingBalanceGhs = booking.total_price - depositPaid;
+    // Calculate remaining balance (total_price - deposit_amount, defaulting deposit to 50% of total if not recorded)
+    const depositPaid =
+      booking.deposit_amount && booking.deposit_amount > 0
+        ? booking.deposit_amount
+        : Math.round(booking.total_price / 2);
+    const remainingBalanceGhs = Math.max(0, booking.total_price - depositPaid);
 
     if (remainingBalanceGhs <= 0) {
       return NextResponse.json({ error: 'This shoot has no remaining balance due' }, { status: 400 });
@@ -40,12 +42,15 @@ export async function POST(request: NextRequest) {
     // Initialize Paystack transaction for the exact remaining balance
     const paystackResult = await initializePaystackTransaction({
       email: booking.email,
+      clientName: booking.name,
       amountInGhs: booking.total_price,
       exactAmountInGhs: remainingBalanceGhs,
       bookingId: `${booking.id}_balance`,
       callbackUrl,
       metadata: {
         booking_id: booking.id,
+        category: booking.category,
+        tier: booking.tier,
         payment_type: 'remaining_balance',
       },
     });

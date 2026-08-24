@@ -6,6 +6,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 export type InitializePaymentParams = {
   email: string;
+  clientName?: string;
   amountInGhs: number; // total package price e.g. 1500
   depositPercentage?: number; // default 50%
   exactAmountInGhs?: number; // if provided, charge this exact GHS amount directly
@@ -26,6 +27,7 @@ export type InitializePaymentResult = {
  */
 export async function initializePaystackTransaction({
   email,
+  clientName,
   amountInGhs,
   depositPercentage = 50,
   exactAmountInGhs,
@@ -45,6 +47,18 @@ export async function initializePaystackTransaction({
 
   const reference = `BYNK_${bookingId.slice(0, 8)}_${Date.now()}`;
 
+  // Parse client first and last name
+  const nameStr = (clientName || metadata.name || metadata.client_name || '').trim();
+  const nameParts = nameStr.split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || firstName;
+
+  const customFields = [
+    ...(nameStr ? [{ display_name: 'Client Name', variable_name: 'client_name', value: nameStr }] : []),
+    ...(metadata.category ? [{ display_name: 'Category', variable_name: 'category', value: String(metadata.category) }] : []),
+    ...(metadata.tier ? [{ display_name: 'Package Tier', variable_name: 'tier', value: String(metadata.tier) }] : []),
+  ];
+
   try {
     const res = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
@@ -58,10 +72,14 @@ export async function initializePaystackTransaction({
         currency: 'GHS',
         reference,
         callback_url: callbackUrl,
+        first_name: firstName,
+        last_name: lastName,
         metadata: {
           booking_id: bookingId,
+          client_name: nameStr,
           total_price_ghs: amountInGhs,
           deposit_ghs: depositGhs,
+          custom_fields: customFields,
           ...metadata,
         },
       }),

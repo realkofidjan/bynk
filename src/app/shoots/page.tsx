@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Mail, Calendar, Clock, Phone, User, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from 'lucide-react';
-import { SLOT_LABELS, type Booking } from '@/lib/booking-types';
+import { SLOT_LABELS, type Booking, calculateBookingFinancials } from '@/lib/booking-types';
 
 export default function ShootsPage() {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
@@ -91,8 +91,10 @@ export default function ShootsPage() {
       if (paystackUrl) {
         const [y, m, d] = shoot.date.split('-').map(Number);
         const formattedDate = new Date(y, m - 1, d).toDateString();
-        const depositPaid = shoot.deposit_amount || 0;
-        const remainingBalance = Math.max(0, shoot.total_price - depositPaid);
+        const { depositPaid, remainingBalance } = calculateBookingFinancials({
+          total_price: shoot.total_price || 0,
+          add_ons: shoot.add_ons || [],
+        });
 
         const waText = [
           `Hi ${shoot.name}, regarding your upcoming ${shoot.category} (${shoot.tier}) photography shoot on ${formattedDate}:`,
@@ -185,9 +187,9 @@ export default function ShootsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono pt-20 sm:pt-24 pb-12">
+    <main className="h-screen max-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono pt-20 sm:pt-24 pb-4 flex flex-col overflow-hidden">
       {/* Header Bar */}
-      <header className="border-b border-foreground/10 bg-background/90 backdrop-blur-md px-6 sm:px-12 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <header className="flex-none border-b border-foreground/10 bg-background/90 backdrop-blur-md px-6 sm:px-12 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-foreground/40 text-[9px] uppercase tracking-[0.3em] mb-1">
             BYNK Photography · Admin Dashboard
@@ -208,9 +210,9 @@ export default function ShootsPage() {
       </header>
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-6 sm:px-12 py-8 space-y-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto px-6 sm:px-12 py-6 flex flex-col overflow-hidden min-h-0">
         {/* Controls Row: Tabs & Search */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-foreground/10 pb-4">
+        <div className="flex-none flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-foreground/10 pb-4 mb-4">
           {/* Tabs */}
           <div className="flex items-center gap-2">
             <button
@@ -263,10 +265,12 @@ export default function ShootsPage() {
             No {activeTab} shoots found.
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto pr-2 space-y-4 min-h-0 custom-scrollbar pb-4">
             {shoots.map((shoot) => {
-              const depositPaid = shoot.deposit_amount || 0;
-              const remainingBalance = Math.max(0, shoot.total_price - depositPaid);
+              const { depositPaid, remainingBalance } = calculateBookingFinancials({
+                total_price: shoot.total_price || 0,
+                add_ons: shoot.add_ons || [],
+              });
               const [y, m, d] = shoot.date.split('-').map(Number);
               const formattedDate = new Date(y, m - 1, d).toDateString();
               const slotLabel = shoot.full_day
@@ -455,33 +459,33 @@ export default function ShootsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-6 border-t border-foreground/10 text-xs">
-                <span className="text-foreground/50">
-                  Page {page} of {totalPages} ({totalCount} total shoots)
-                </span>
+        {/* Fixed Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex-none flex items-center justify-between pt-3 mt-2 border-t border-foreground/10 text-xs font-mono">
+            <span className="text-foreground/50 text-[11px]">
+              Page {page} of {totalPages} ({totalCount} total shoots)
+            </span>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="p-2 border border-foreground/20 hover:bg-foreground/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
+            <div className="flex items-center gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="p-1.5 border border-foreground/20 hover:bg-foreground/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
 
-                  <button
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="p-2 border border-foreground/20 hover:bg-foreground/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="p-1.5 border border-foreground/20 hover:bg-foreground/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>

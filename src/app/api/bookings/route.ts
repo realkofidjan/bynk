@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase';
 import {
-  type AvailabilityMap,
-  type DayAvailability,
+  type Booking,
   type TimeSlot,
   isFullDayCategory,
-  toDateKey,
+  calculateAvailableTimeSlots,
+  getDbSlotValue,
 } from '@/lib/booking-types';
 
 /* ────────────────────────────────────────
-   GET /api/bookings — Fetch availability map
+   GET /api/bookings — Fetch active bookings & availability
    ──────────────────────────────────────── */
 
 export async function GET() {
@@ -19,7 +19,7 @@ export async function GET() {
     // Fetch all active bookings (pending + confirmed — not cancelled)
     const { data: bookings, error } = await supabase
       .from('bookings')
-      .select('date, slot, full_day, status')
+      .select('id, date, slot, category, tier, full_day, status')
       .in('status', ['pending', 'confirmed']);
 
     if (error) {
@@ -27,40 +27,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch bookings' }, { status: 500 });
     }
 
-    // Build availability map
-    const availabilityMap: AvailabilityMap = {};
-
-    for (const booking of bookings || []) {
-      const dateKey = booking.date; // already ISO date string from Supabase
-
-      if (!availabilityMap[dateKey]) {
-        availabilityMap[dateKey] = {
-          blocked: false,
-          slots: { morning: 'available', afternoon: 'available' },
-        };
-      }
-
-      const day = availabilityMap[dateKey];
-
-      if (booking.full_day || booking.slot === 'full_day') {
-        // Full-day booking blocks both slots
-        day.blocked = true;
-        day.reason = 'full_day_booking';
-        day.slots.morning = 'booked';
-        day.slots.afternoon = 'booked';
-      } else if (booking.slot === 'morning' || booking.slot === 'afternoon') {
-        const slotKey: 'morning' | 'afternoon' = booking.slot;
-        day.slots[slotKey] = 'booked';
-
-        // Check if all slots are now taken
-        if (day.slots.morning === 'booked' && day.slots.afternoon === 'booked') {
-          day.blocked = true;
-          day.reason = 'all_slots_taken';
-        }
-      }
-    }
-
-    return NextResponse.json(availabilityMap);
+    return NextResponse.json({
+      bookings: bookings || [],
+    });
   } catch (err) {
     console.error('Bookings GET error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -73,7 +42,7 @@ export async function GET() {
 
 type BookingPayload = {
   date: string; // "YYYY-MM-DD"
-  slot: TimeSlot;
+  slot: TimeSlot; // e.g. "09:00", "11:30", "full_day"
   category: string;
   tier: string;
   name: string;
@@ -93,11 +62,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Validate slot value
-    if (!['morning', 'afternoon', 'full_day'].includes(slot)) {
-      return NextResponse.json({ error: 'Invalid time slot' }, { status: 400 });
-    }
-
     // Check if date is a Sunday
     const bookingDate = new Date(date + 'T00:00:00');
     if (bookingDate.getDay() === 0) {
@@ -112,12 +76,12 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerSupabase();
-    const fullDay = isFullDayCategory(category);
+    const fullDay = isFullDayCategory(category, tier);
 
-    // Check current availability for this date
+    // Check current active bookings for this date
     const { data: existingBookings, error: fetchError } = await supabase
       .from('bookings')
-      .select('slot, full_day')
+      .select('*')
       .eq('date', date)
       .in('status', ['pending', 'confirmed']);
 
@@ -126,41 +90,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to check availability' }, { status: 500 });
     }
 
-    // Check for conflicts
-    for (const existing of existingBookings || []) {
-      // If there's already a full-day booking, the day is blocked
-      if (existing.full_day || existing.slot === 'full_day') {
-        return NextResponse.json(
-          { error: 'This date is fully booked (full-day session)' },
-          { status: 409 }
-        );
-      }
+    // Verify requested time slot against airtight schedule calculator
+    const availableSlots = calculateAvailableTimeSlots(
+      (existingBookings as Booking[]) || [],
+      category,
+      tier
+    );
 
-      // If we're trying to book a full day but there are existing partial bookings
-      if (fullDay) {
-        return NextResponse.json(
-          { error: 'This date already has bookings — cannot book a full day' },
-          { status: 409 }
-        );
-      }
-
-      // If the specific slot is already taken
-      if (existing.slot === slot) {
-        return NextResponse.json(
-          { error: `The ${slot} slot is already booked for this date` },
-          { status: 409 }
-        );
-      }
+    const isSlotValid = availableSlots.some((s) => s.timeStr === slot);
+    if (!isSlotValid) {
+      return NextResponse.json(
+        {
+          error:
+            'The selected time slot is no longer available due to existing bookings, buffer requirements, or category limits.',
+        },
+        { status: 409 }
+      );
     }
+
+    // Convert slot to DB allowed constraint value ('morning' | 'afternoon' | 'full_day')
+    const dbSlot = fullDay ? 'full_day' : getDbSlotValue(slot);
+
+    // Embed exact start time in tier string if slot is HH:MM (e.g. "Signature @ 09:30")
+    const dbTier = !fullDay && slot.includes(':') ? `${tier} @ ${slot}` : tier;
+
+    type ExtendedBookingPayload = BookingPayload & {
+      depositAmount?: number;
+      basePriceGhs?: number;
+      addOnsGhs?: number;
+    };
+    const { depositAmount } = body as ExtendedBookingPayload;
+    const initialDeposit = depositAmount || Math.round((totalPrice || 0) / 2);
 
     // Insert the booking
     const { data: newBooking, error: insertError } = await supabase
       .from('bookings')
       .insert({
         date,
-        slot: fullDay ? 'full_day' : slot,
+        slot: dbSlot,
         category,
-        tier,
+        tier: dbTier,
         name,
         email,
         phone,
@@ -173,8 +142,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('Supabase insert error:', insertError);
-      return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
+      console.error('Supabase insert error details:', JSON.stringify(insertError, null, 2));
+      return NextResponse.json(
+        { error: insertError.message || insertError.details || 'Failed to create booking' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -186,3 +158,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+

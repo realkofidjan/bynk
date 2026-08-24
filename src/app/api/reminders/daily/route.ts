@@ -38,8 +38,11 @@ export async function GET(request: NextRequest) {
     const results = [];
 
     for (const booking of upcomingBookings || []) {
-      const depositPaid = booking.deposit_amount || 0;
-      const remainingBalanceGhs = booking.total_price - depositPaid;
+      const depositPaid =
+        booking.deposit_amount && booking.deposit_amount > 0
+          ? booking.deposit_amount
+          : Math.round(booking.total_price / 2);
+      const remainingBalanceGhs = Math.max(0, booking.total_price - depositPaid);
 
       // Skip if balance is already 0
       if (remainingBalanceGhs <= 0) continue;

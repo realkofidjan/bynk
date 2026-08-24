@@ -1,17 +1,31 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 import { ChronoSelect } from '@/components/ui/chrono-select';
 import {
-  type AvailabilityMap,
+  type Booking,
+  type AvailableSlot,
   SLOT_LABELS,
   isFullDayCategory,
   toDateKey,
+  calculateAvailableTimeSlots,
+  getTierDurationMinutes,
+  formatTimeLabel,
+  getBookingStartTime,
+  getBookingEndTime,
+  getCleanTierName,
+  formatAddOnName,
+  calculateBookingFinancials,
 } from '@/lib/booking-types';
+import {
+  createIcsContent,
+  createGoogleCalendarUrl,
+  downloadIcsFile,
+} from '@/lib/ics-calendar';
 
 /* ────────────────────────────────────────
    Rate Card Data — from NK_Photography_2026_Rate_Card.docx
@@ -194,9 +208,9 @@ const categories: Category[] = [
     icon: <Sparkles className="w-3 h-3" />,
     tiers: [
       {
-        name: 'Signature',
+        name: 'Signature (Half Day)',
         price: 'GHS 1,600',
-        duration: 'Up to 4 hours · 1 photographer',
+        duration: 'Up to 4 hours · Half Day · 1 photographer',
         features: [
           'Event & key moments coverage',
           'Candid & guest photography',
@@ -208,9 +222,9 @@ const categories: Category[] = [
         note: 'Birthdays, naming ceremonies, church programs',
       },
       {
-        name: 'Lux',
+        name: 'Lux (Half Day)',
         price: 'GHS 2,600',
-        duration: 'Up to 6 hours · 1 photographer',
+        duration: 'Up to 6 hours · Half Day · 1 photographer',
         bestValue: true,
         features: [
           'Full event & stage/program coverage',
@@ -223,9 +237,9 @@ const categories: Category[] = [
         note: 'Corporate events, launches, celebrations',
       },
       {
-        name: 'Platinum',
+        name: 'Platinum (Full Day)',
         price: 'GHS 3,800',
-        duration: 'Up to 8 hours · 2 photographers',
+        duration: 'Up to 8 hours · Full Day · 2 photographers',
         features: [
           'Full event & behind-the-scenes coverage',
           'Speaker, performer & VIP photography',
@@ -234,7 +248,7 @@ const categories: Category[] = [
           'Private online gallery',
           'Priority image delivery',
         ],
-        note: 'Conferences, concerts, high-profile events',
+        note: 'Conferences, concerts, high-profile events (blocks full day)',
       },
     ],
   },
@@ -587,11 +601,11 @@ function BookingFormLightbox({
   const [submitError, setSubmitError] = useState('');
 
   // Availability state
-  const [availabilityMap, setAvailabilityMap] = useState<AvailabilityMap>({});
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [disabledDates, setDisabledDates] = useState<Date[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(true);
 
-  const fullDay = isFullDayCategory(categoryId);
+  const fullDay = isFullDayCategory(categoryId, tierName);
 
   const availableAddOns = categoryAddOns[categoryId] || [];
 
@@ -618,15 +632,27 @@ function BookingFormLightbox({
       setLoadingAvailability(true);
       const res = await fetch('/api/bookings');
       if (res.ok) {
-        const data: AvailabilityMap = await res.json();
-        setAvailabilityMap(data);
+        const data = await res.json();
+        const bookings: Booking[] = data.bookings || [];
+        setAllBookings(bookings);
 
-        // Build disabled dates array (fully blocked dates)
+        // Build disabled dates array for the next 180 days
         const blocked: Date[] = [];
-        for (const [dateKey, day] of Object.entries(data)) {
-          if (day.blocked) {
-            const [y, m, d] = dateKey.split('-').map(Number);
-            blocked.push(new Date(y, m - 1, d));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 1; i <= 180; i++) {
+          const testDate = new Date(today);
+          testDate.setDate(today.getDate() + i);
+
+          if (testDate.getDay() === 0) continue; // Sundays disabled by calendar
+
+          const dateKey = toDateKey(testDate);
+          const dateBookings = bookings.filter((b) => b.date === dateKey);
+          const slots = calculateAvailableTimeSlots(dateBookings, categoryId, tierName);
+
+          if (slots.length === 0) {
+            blocked.push(testDate);
           }
         }
         setDisabledDates(blocked);
@@ -636,18 +662,29 @@ function BookingFormLightbox({
     } finally {
       setLoadingAvailability(false);
     }
-  }, []);
+  }, [categoryId, tierName]);
 
   useEffect(() => {
     fetchAvailability();
   }, [fetchAvailability]);
 
+  // Compute available slots for currently selected date
+  const dateKey = date ? toDateKey(date) : '';
+  const dateBookings = useMemo(() => {
+    return dateKey ? allBookings.filter((b) => b.date === dateKey) : [];
+  }, [allBookings, dateKey]);
+
+  const availableSlots = useMemo(() => {
+    if (!dateKey) return [];
+    return calculateAvailableTimeSlots(dateBookings, categoryId, tierName);
+  }, [dateBookings, categoryId, tierName, dateKey]);
+
   // Auto-set slot for full-day categories
   useEffect(() => {
-    if (fullDay) {
+    if (fullDay && availableSlots.length > 0) {
       setSelectedSlot('full_day');
     }
-  }, [fullDay]);
+  }, [fullDay, availableSlots]);
 
   // Clear slot when date changes (for non-full-day)
   useEffect(() => {
@@ -673,7 +710,7 @@ function BookingFormLightbox({
     setSubmitting(true);
     setSubmitError('');
 
-    const dateKey = toDateKey(date);
+    const dateKeyStr = toDateKey(date);
 
     try {
       // 1. Create pending booking in Supabase
@@ -681,7 +718,7 @@ function BookingFormLightbox({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          date: dateKey,
+          date: dateKeyStr,
           slot: fullDay ? 'full_day' : selectedSlot,
           category: categoryId,
           tier: tierName,
@@ -690,6 +727,9 @@ function BookingFormLightbox({
           phone,
           addOns: selectedAddOnIds,
           totalPrice: totalPriceNum,
+          basePriceGhs: basePriceNum,
+          addOnsGhs: addOnsTotal,
+          depositAmount: depositGhs,
         }),
       });
 
@@ -702,7 +742,7 @@ function BookingFormLightbox({
         return;
       }
 
-      // 2. Initialize Paystack payment for 50% deposit
+      // 2. Initialize Paystack payment for deposit (50% base + 100% add-ons)
       const paystackRes = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -710,6 +750,9 @@ function BookingFormLightbox({
           bookingId: result.bookingId,
           email,
           totalPrice: totalPriceNum,
+          basePriceGhs: basePriceNum,
+          addOnsGhs: addOnsTotal,
+          depositAmount: depositGhs,
           category: categoryLabel,
           tier: tierName,
           name,
@@ -922,56 +965,69 @@ function BookingFormLightbox({
                 />
               </div>
 
-              {/* Time Slot Picker — separate from date picker */}
+              {/* Dynamic Time Slot Picker */}
               {date && !fullDay && (
                 <div>
-                  <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] mb-1 font-medium">
-                    Preferred Time
-                  </label>
-                  <div className="flex gap-2">
-                    {(['morning', 'afternoon'] as const).map((slot) => {
-                      const dateKey = toDateKey(date);
-                      const dayInfo = availabilityMap[dateKey];
-                      const isBooked = dayInfo?.slots?.[slot] === 'booked';
-                      const isSelected = selectedSlot === slot;
-
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          disabled={isBooked}
-                          onClick={() => setSelectedSlot(slot)}
-                          className={`
-                            flex-1 py-2.5 px-3 text-[10px] font-mono tracking-wide border transition-all duration-200 rounded-none
-                            ${isBooked
-                              ? 'bg-foreground/[0.03] text-foreground/20 border-foreground/[0.06] cursor-not-allowed line-through'
-                              : isSelected
-                                ? 'bg-foreground text-background border-foreground shadow-sm cursor-pointer'
-                                : 'bg-foreground/[0.03] text-foreground/70 border-foreground/20 hover:bg-foreground/[0.06] hover:border-foreground/30 cursor-pointer'
-                            }
-                          `}
-                        >
-                          {SLOT_LABELS[slot]}
-                          {isBooked && (
-                            <span className="block text-[8px] mt-0.5 opacity-50" style={{ textDecoration: 'none' }}>
-                              Unavailable
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] font-medium">
+                      Preferred Start Time (From 9:00 AM)
+                    </label>
+                    <span className="text-[9px] font-mono text-foreground/40">
+                      Duration: {getTierDurationMinutes(categoryId, tierName)} mins
+                    </span>
                   </div>
+
+                  {availableSlots.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-44 overflow-y-auto p-2 border border-foreground/10 bg-foreground/[0.01]">
+                      {availableSlots.map((slot) => {
+                        const isSelected = selectedSlot === slot.timeStr;
+                        return (
+                          <button
+                            key={slot.timeStr}
+                            type="button"
+                            onClick={() => setSelectedSlot(slot.timeStr)}
+                            className={`
+                              py-2 px-2.5 text-center border transition-all duration-200 rounded-none cursor-pointer
+                              ${
+                                isSelected
+                                  ? 'bg-foreground text-background border-foreground shadow-sm font-semibold'
+                                  : 'bg-foreground/[0.03] text-foreground/80 border-foreground/20 hover:bg-foreground/[0.06] hover:border-foreground/40'
+                              }
+                            `}
+                          >
+                            <span className="block text-[11px] font-mono tracking-wide">{slot.label}</span>
+                            <span
+                              className={`block text-[8px] font-mono mt-0.5 ${
+                                isSelected ? 'text-background/80' : 'text-foreground/40'
+                              }`}
+                            >
+                              Ends {slot.endLabel}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-red-500/10 border border-red-500/20 p-2.5 text-center">
+                      <p className="text-[10px] font-mono text-red-400">
+                        No available time slots fit this date with required preparation breaks. Please select another date.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Full-day indicator for weddings/events */}
               {date && fullDay && (
-                <div className="bg-foreground/[0.04] border border-foreground/15 px-3 py-2.5 text-center">
-                  <p className="text-[10px] font-mono text-foreground/70 tracking-wide">
-                    Full Day Session
+                <div className="bg-foreground/[0.04] border border-foreground/15 px-3 py-3 text-center">
+                  <p className="text-[11px] font-mono text-foreground font-medium tracking-wide">
+                    Full Day Exclusive Session
                   </p>
-                  <p className="text-[9px] font-mono text-foreground/40 mt-0.5">
-                    8 AM – End of event
+                  <p className="text-[9px] font-mono text-foreground/50 mt-1">
+                    9:00 AM – End of Event / Celebration
+                  </p>
+                  <p className="text-[8px] font-mono text-foreground/40 mt-0.5">
+                    (Blocks entire day — no other bookings scheduled)
                   </p>
                 </div>
               )}
@@ -1404,24 +1460,56 @@ export default function BookPage() {
 function PaymentSuccessHandler() {
   const searchParams = useSearchParams();
   const status = searchParams.get('status');
-  const bookingId = searchParams.get('bookingId');
+  const bookingIdParam = searchParams.get('bookingId');
+  const reference = searchParams.get('reference') || searchParams.get('trxref');
   const [open, setOpen] = useState(false);
+  const [booking, setBooking] = useState<Booking | null>(null);
+
+  const targetBookingId = bookingIdParam || (reference ? reference : null);
+  const isPaymentSuccess =
+    status === 'payment_complete' || Boolean(reference) || Boolean(bookingIdParam);
 
   useEffect(() => {
-    if (status === 'payment_complete' && bookingId) {
+    if (isPaymentSuccess && targetBookingId) {
       setOpen(true);
+      fetchBookingDetails(targetBookingId);
     }
-  }, [status, bookingId]);
+  }, [isPaymentSuccess, targetBookingId]);
 
-  if (!open || !bookingId) return null;
+  const fetchBookingDetails = async (id: string) => {
+    try {
+      const res = await fetch(`/api/bookings/${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBooking(data.booking || null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch booking details:', err);
+    }
+  };
+
+  if (!open || !targetBookingId) return null;
+
+  const handleDownloadClientIcs = () => {
+    if (!booking) return;
+    const icsContent = createIcsContent([booking], true);
+    const dateFormatted = booking.date.replace(/-/g, '');
+    downloadIcsFile(`BYNK_Shoot_Confirmation_${dateFormatted}.ics`, icsContent);
+  };
+
+  const googleCalUrl = booking ? createGoogleCalendarUrl(booking, true) : '';
 
   const handleOpenWhatsapp = () => {
     const message = [
       `Hi BYNK! I have completed my 50% deposit payment on Paystack.`,
       ``,
-      `Booking Reference: ${bookingId}`,
+      `Booking Reference: ${targetBookingId}`,
+      booking ? `Category: ${booking.category} (${booking.tier})` : '',
+      booking ? `Date: ${booking.date}` : '',
       `Please let me know once confirmed!`,
-    ].join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     window.open(
       `https://wa.me/233205555084?text=${encodeURIComponent(message)}`,
@@ -1429,6 +1517,18 @@ function PaymentSuccessHandler() {
     );
     setOpen(false);
   };
+
+  const isFullDay = booking?.full_day || booking?.slot === 'full_day';
+  const startTime = booking ? getBookingStartTime(booking) : '09:00';
+  const endTime = booking ? getBookingEndTime(booking) : '17:00';
+  const timeDisplay = isFullDay
+    ? 'Full Day Coverage (Starts 9:00 AM)'
+    : `${formatTimeLabel(startTime)} – ${formatTimeLabel(endTime)}`;
+
+  const { depositPaid, remainingBalance } = calculateBookingFinancials({
+    total_price: booking?.total_price || 0,
+    add_ons: booking?.add_ons || [],
+  });
 
   return (
     <AnimatePresence>
@@ -1448,47 +1548,109 @@ function PaymentSuccessHandler() {
           animate="visible"
           exit="exit"
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-md bg-background border border-foreground/20 shadow-2xl shadow-black/50 p-6 rounded-none text-center space-y-4"
+          className="relative w-full max-w-lg bg-background border border-foreground/20 shadow-2xl shadow-black/50 p-6 sm:p-8 rounded-none text-center space-y-5"
         >
           <div className="flex justify-center text-foreground">
-            <CheckCircle2 className="w-12 h-12 stroke-[1.5]" />
+            <CheckCircle2 className="w-14 h-14 stroke-[1.5]" />
           </div>
 
           <div>
-            <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.3em] mb-1">
-              Payment Successful
+            <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.3em] mb-1 font-medium">
+              Payment Successful & Confirmed
             </p>
-            <h2 className="text-xl font-serif tracking-tight text-foreground">
+            <h2 className="text-2xl font-serif tracking-tight text-foreground">
               50% Deposit Received!
             </h2>
           </div>
 
           <p className="text-foreground/70 text-xs font-mono leading-relaxed">
-            Thank you! Your 50% booking deposit has been processed securely via Paystack. Your booking slot is now reserved.
+            Thank you! Your booking deposit has been processed securely via Paystack. Your shoot slot is officially reserved.
           </p>
 
-          <div className="bg-foreground/[0.04] border border-foreground/15 p-3 font-mono text-[10px] space-y-1">
-            <div className="flex justify-between text-foreground/50">
-              <span>Booking ID:</span>
-              <span className="text-foreground font-semibold">{bookingId.slice(0, 13)}...</span>
+          {/* Booking Summary Card */}
+          {booking && (
+            <div className="bg-foreground/[0.03] border border-foreground/15 p-4 text-left font-mono text-[11px] space-y-2">
+              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
+                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Client:</span>
+                <span className="text-foreground font-semibold">{booking.name}</span>
+              </div>
+              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
+                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Package:</span>
+                <span className="text-foreground">{booking.category} ({getCleanTierName(booking.tier)})</span>
+              </div>
+              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
+                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Date & Time:</span>
+                <span className="text-foreground">{booking.date} ({timeDisplay})</span>
+              </div>
+              {booking.add_ons && booking.add_ons.length > 0 && (
+                <div className="flex justify-between border-b border-foreground/10 pb-1.5">
+                  <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Add-ons (Paid 100%):</span>
+                  <span className="text-foreground font-medium text-right max-w-[220px]">
+                    {booking.add_ons.map(formatAddOnName).join(', ')}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between border-b border-foreground/10 pb-1.5 pt-1">
+                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Total Shoot Price:</span>
+                <span className="text-foreground font-bold">GHS {booking.total_price.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
+                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">
+                  {booking.add_ons && booking.add_ons.length > 0
+                    ? 'Deposit Paid (50% Base + 100% Add-ons):'
+                    : '50% Deposit Paid:'}
+                </span>
+                <span className="text-emerald-500 font-bold">GHS {depositPaid.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs pt-0.5">
+                <span className="text-foreground/60">Balance Due on Shoot Day:</span>
+                <span className="text-foreground font-semibold">GHS {remainingBalance.toLocaleString()}</span>
+              </div>
             </div>
-            <div className="flex justify-between text-foreground/50">
-              <span>Payment Provider:</span>
-              <span className="text-foreground">Paystack Ghana</span>
+          )}
+
+          {/* Device Calendar Sync Section */}
+          <div className="bg-foreground/[0.02] border border-foreground/10 p-3.5 text-left space-y-2">
+            <p className="text-[9px] font-mono uppercase tracking-[0.25em] text-foreground/50 font-medium">
+              Sync Shoot to Device Calendar:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadClientIcs}
+                disabled={!booking}
+                className="py-2.5 px-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.15em] hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Apple / iCal (.ics)
+              </button>
+
+              <a
+                href={googleCalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`py-2.5 px-3 bg-foreground/[0.05] text-foreground border border-foreground/20 font-mono text-[10px] uppercase tracking-[0.15em] hover:bg-foreground/[0.1] transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+                  !booking ? 'pointer-events-none opacity-40' : ''
+                }`}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Google Calendar
+              </a>
             </div>
           </div>
 
-          <div className="pt-2 space-y-2">
+          <div className="pt-1 space-y-2">
             <button
               onClick={handleOpenWhatsapp}
-              className="w-full py-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] hover:bg-foreground/90 transition-colors shadow-md cursor-pointer"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[10px] uppercase tracking-[0.25em] transition-colors shadow-sm cursor-pointer"
             >
               Send Confirmation to WhatsApp
             </button>
 
             <button
               onClick={() => setOpen(false)}
-              className="w-full py-2.5 bg-transparent text-foreground/50 font-mono text-[9px] uppercase tracking-[0.2em] hover:text-foreground transition-colors cursor-pointer"
+              className="w-full py-2 bg-transparent text-foreground/40 font-mono text-[9px] uppercase tracking-[0.2em] hover:text-foreground transition-colors cursor-pointer"
             >
               Close
             </button>
