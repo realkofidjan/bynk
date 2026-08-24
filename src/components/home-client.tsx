@@ -163,21 +163,21 @@ export function Lightbox({
   return (
     <div
       id="lightbox-overlay"
-      className={`fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 md:p-12 transition-all duration-400 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-6 md:p-12 transition-all duration-400 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={handleClose}
     >
       {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-background/95 backdrop-blur-xl transition-all duration-400 ${
+        className={`absolute inset-0 bg-background sm:bg-background/95 sm:backdrop-blur-xl transition-all duration-400 ${
           visible ? 'opacity-100' : 'opacity-0'
         }`}
       />
 
       {/* Content Container with fixed height flex structure */}
       <div
-        className={`relative z-10 flex flex-col w-full max-w-5xl h-[calc(100vh-4.5rem)] max-h-[850px] transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+        className={`relative z-10 flex flex-col w-full h-full sm:h-[85vh] sm:max-w-5xl max-h-full sm:max-h-[850px] bg-background transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
           visible
             ? 'opacity-100 scale-100 translate-y-0'
             : 'opacity-0 scale-95 translate-y-4'

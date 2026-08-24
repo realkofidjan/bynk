@@ -85,7 +85,7 @@ export function GlobalGalleryProvider({
       )}
 
       {/* Main Page Children (Home / Me) - pointer-events-none so clicks hit 3D canvas only on home page */}
-      <div className={`relative z-10 ${isHomePage ? 'pointer-events-none' : 'pointer-events-auto'}`}>
+      <div className={isHomePage ? 'pointer-events-none' : 'pointer-events-auto'}>
         {children}
       </div>
 

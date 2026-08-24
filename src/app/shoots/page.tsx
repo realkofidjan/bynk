@@ -566,17 +566,17 @@ export default function ShootsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
             onClick={() => setCancellingShoot(null)}
           >
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[92vw] sm:max-w-md max-h-[calc(100vh-4.5rem)] bg-background border border-red-500/30 p-6 rounded-none space-y-4 shadow-2xl overflow-y-auto"
+              className="relative w-full h-full sm:h-auto sm:max-w-md max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-red-500/30 p-6 rounded-none space-y-4 shadow-2xl overflow-y-auto flex flex-col justify-center"
             >
               <div className="flex items-center gap-3 text-red-400 border-b border-foreground/10 pb-3">
                 <AlertCircle className="w-5 h-5 shrink-0" />
@@ -629,17 +629,17 @@ export default function ShootsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
             onClick={() => setCancelResult(null)}
           >
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md bg-background border border-foreground/20 p-6 rounded-none space-y-4 shadow-2xl text-center"
+              className="relative w-full h-full sm:h-auto sm:max-w-md max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 p-6 rounded-none space-y-4 shadow-2xl text-center flex flex-col justify-center items-center overflow-y-auto"
             >
               <div className="flex justify-center text-red-400">
                 <AlertCircle className="w-10 h-10 stroke-[1.5]" />
@@ -658,7 +658,7 @@ export default function ShootsPage() {
                 The shoot for <strong className="text-foreground">{cancelResult.clientName}</strong> on {cancelResult.shootDate} has been cancelled in Supabase. The calendar slot is now available.
               </p>
 
-              <div className="bg-foreground/[0.03] border border-foreground/10 p-3 text-[10px] text-left space-y-1">
+              <div className="bg-foreground/[0.03] border border-foreground/10 p-3 text-[10px] text-left space-y-1 w-full">
                 <div className="flex justify-between">
                   <span className="text-foreground/50">Notice Period:</span>
                   <span className="text-foreground font-semibold">{cancelResult.diffDays} days before shoot</span>
@@ -671,7 +671,7 @@ export default function ShootsPage() {
                 </div>
               </div>
 
-              <div className="pt-2 space-y-2">
+              <div className="pt-2 space-y-2 w-full">
                 <a
                   href={`https://wa.me/${cancelResult.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${cancelResult.clientName}, your photography shoot scheduled for ${cancelResult.shootDate} has been cancelled per your request. If eligible under our 2-day policy, add-on refunds will be processed shortly. Thank you — BYNK Photography.`)}`}
                   target="_blank"
@@ -700,17 +700,17 @@ export default function ShootsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-6"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-6"
             onClick={() => setSelectedBookingDetails(null)}
           >
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+            <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[94vw] sm:max-w-2xl max-h-[calc(100vh-4.5rem)] bg-background border border-foreground/20 p-4 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground"
+              className="relative w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 p-5 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground flex flex-col justify-between"
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-foreground/15 pb-3">

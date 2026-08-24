@@ -456,11 +456,11 @@ function TermsLightbox({ onClose }: { onClose: () => void }) {
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-background sm:bg-background/85 sm:backdrop-blur-md" />
 
       {/* Panel */}
       <motion.div
@@ -469,7 +469,7 @@ function TermsLightbox({ onClose }: { onClose: () => void }) {
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[92vw] sm:max-w-2xl max-h-[calc(100vh-4.5rem)] bg-background border border-foreground/20 shadow-2xl flex flex-col rounded-none overflow-hidden"
+        className="relative w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 shadow-2xl flex flex-col rounded-none overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/[0.06] shrink-0">
@@ -794,11 +794,11 @@ function BookingFormLightbox({
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
 
       {/* Panel */}
       <motion.div
@@ -807,7 +807,7 @@ function BookingFormLightbox({
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[94vw] sm:max-w-[75vw] max-h-[calc(100vh-4.5rem)] bg-background border border-foreground/20 shadow-2xl shadow-black/50 flex flex-col rounded-none overflow-hidden"
+        className="relative w-full h-full sm:h-auto sm:max-w-[75vw] max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 shadow-2xl shadow-black/50 flex flex-col rounded-none overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/10 shrink-0">
@@ -1137,10 +1137,10 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
 
       <motion.div
         variants={panelVariants}
@@ -1148,7 +1148,7 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
         animate="visible"
         exit="exit"
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-[92vw] sm:max-w-md max-h-[calc(100vh-4.5rem)] bg-background border border-foreground/20 shadow-2xl shadow-black/50 rounded-none overflow-hidden flex flex-col"
+        className="relative w-full h-full sm:h-auto sm:max-w-md max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 shadow-2xl shadow-black/50 rounded-none overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-foreground/10">
@@ -1687,10 +1687,10 @@ function PaymentSuccessHandler() {
         initial="hidden"
         animate="visible"
         exit="hidden"
-        className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
+        className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
         onClick={() => setOpen(false)}
       >
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+        <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
 
         <motion.div
           variants={panelVariants}
@@ -1698,7 +1698,7 @@ function PaymentSuccessHandler() {
           animate="visible"
           exit="exit"
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-[92vw] sm:max-w-lg max-h-[calc(100vh-4.5rem)] bg-background border border-foreground/20 shadow-2xl shadow-black/50 p-6 sm:p-8 rounded-none text-center space-y-5 overflow-y-auto"
+          className="relative w-full h-full sm:h-auto sm:max-w-lg max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 shadow-2xl shadow-black/50 p-6 sm:p-8 rounded-none text-center space-y-5 flex flex-col justify-center items-center overflow-y-auto"
         >
           <div className="flex justify-center text-foreground">
             <CheckCircle2 className="w-14 h-14 stroke-[1.5]" />

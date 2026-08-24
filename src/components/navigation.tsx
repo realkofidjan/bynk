@@ -18,7 +18,7 @@ export default function Navigation() {
       {/* Top Left Navigation Links */}
       <nav
         id="main-navigation"
-        className="fixed top-8 left-8 z-50 pointer-events-auto flex flex-row items-center gap-6"
+        className="fixed top-5 left-5 sm:top-8 sm:left-8 z-30 pointer-events-auto flex flex-row items-center gap-4 sm:gap-6"
       >
         {navItems.map((item) => {
           const isActive = pathname === item.href;
