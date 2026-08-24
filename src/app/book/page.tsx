@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink } from 'lucide-react';
+import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 import { ChronoSelect } from '@/components/ui/chrono-select';
 import {
@@ -1238,6 +1238,40 @@ export default function BookPage() {
     tierPrice: string;
   } | null>(null);
 
+  const [mobileCardIndex, setMobileCardIndex] = useState(0);
+  const mobileCarouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollToMobileCard = (idx: number) => {
+    setMobileCardIndex(idx);
+    if (mobileCarouselRef.current) {
+      const cardWidth = mobileCarouselRef.current.clientWidth;
+      mobileCarouselRef.current.scrollTo({
+        left: cardWidth * idx,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  const handleMobileScroll = () => {
+    if (mobileCarouselRef.current) {
+      const cardWidth = mobileCarouselRef.current.clientWidth;
+      if (cardWidth > 0) {
+        const newIdx = Math.round(mobileCarouselRef.current.scrollLeft / cardWidth);
+        if (newIdx !== mobileCardIndex) {
+          setMobileCardIndex(newIdx);
+        }
+      }
+    }
+  };
+
+  const handleCategorySelect = (catId: string) => {
+    setActiveCategory(catId);
+    setMobileCardIndex(0);
+    if (mobileCarouselRef.current) {
+      mobileCarouselRef.current.scrollLeft = 0;
+    }
+  };
+
   const openTerms = useCallback(() => setShowTerms(true), []);
   const closeTerms = useCallback(() => setShowTerms(false), []);
 
@@ -1270,7 +1304,7 @@ export default function BookPage() {
             {categories.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                onClick={() => handleCategorySelect(cat.id)}
                 className={`
                   group relative font-mono text-[10px] uppercase tracking-[0.15em] 
                   transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]
@@ -1313,7 +1347,7 @@ export default function BookPage() {
           </span>
         </motion.div>
 
-        {/* Rate cards (Mobile Carousel + Desktop 3-Column Grid) */}
+        {/* Rate cards (Mobile Single-Card Carousel + Desktop 3-Column Grid) */}
         <div className="flex-1 min-h-0">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1324,87 +1358,117 @@ export default function BookPage() {
               transition={{ duration: 0.35, ease }}
               className="h-full flex flex-col justify-between"
             >
-              {/* Mobile Swipeable Cards Carousel (sm:hidden) */}
-              <div className="flex sm:hidden overflow-x-auto snap-x snap-mandatory gap-4 pb-4 pt-1 px-1 h-full min-h-0 custom-scrollbar">
-                {active.tiers.map((tier) => (
-                  <div
-                    key={tier.name}
-                    className={`
-                      w-[84vw] max-w-[320px] shrink-0 snap-center bg-background border border-foreground/20
-                      p-5 flex flex-col justify-between shadow-xl transition-all duration-300
-                      ${tier.bestValue ? 'border-foreground/40 bg-foreground/[0.02]' : ''}
-                    `}
-                  >
-                    <div className="flex-1 flex flex-col">
-                      <div className="flex items-baseline justify-between mb-1">
-                        <h2 className="text-base font-serif tracking-tight text-foreground font-semibold">
-                          {tier.name}
-                        </h2>
-                        {tier.bestValue && (
-                          <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground bg-foreground/10 border border-foreground/30 px-2 py-0.5 font-medium">
-                            Best Value
+              {/* Mobile Single Card Carousel (sm:hidden) */}
+              <div className="sm:hidden flex flex-col h-full justify-between gap-3 min-h-0">
+                <div
+                  ref={mobileCarouselRef}
+                  onScroll={handleMobileScroll}
+                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none w-full h-full min-h-0 space-x-0"
+                >
+                  {active.tiers.map((tier) => (
+                    <div
+                      key={tier.name}
+                      className={`
+                        w-full min-w-full shrink-0 snap-center snap-always bg-background border border-foreground/20
+                        p-5 flex flex-col justify-between shadow-xl transition-all duration-300
+                        ${tier.bestValue ? 'border-foreground/40 bg-foreground/[0.02]' : ''}
+                      `}
+                    >
+                      <div className="flex-1 flex flex-col">
+                        <div className="flex items-baseline justify-between mb-1">
+                          <h2 className="text-base font-serif tracking-tight text-foreground font-semibold">
+                            {tier.name}
+                          </h2>
+                          {tier.bestValue && (
+                            <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground bg-foreground/10 border border-foreground/30 px-2 py-0.5 font-medium">
+                              Best Value
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.15em] mb-3">
+                          {tier.duration}
+                        </p>
+
+                        <div className="mb-3">
+                          <span className="text-2xl font-serif tracking-tight text-foreground font-semibold">
+                            {tier.price}
                           </span>
+                        </div>
+
+                        <div className="w-8 h-px bg-foreground/15 mb-3" />
+
+                        <ul className="space-y-2 flex-1">
+                          {tier.features.map((f) => (
+                            <li
+                              key={f}
+                              className="text-foreground/70 text-[11px] font-mono tracking-wide flex items-start gap-2"
+                            >
+                              <span className="text-foreground/30 mt-px shrink-0">—</span>
+                              <span>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        {tier.note && (
+                          <p className="mt-3 text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] italic border-t border-foreground/10 pt-2">
+                            {tier.note}
+                          </p>
                         )}
                       </div>
 
-                      <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.15em] mb-3">
-                        {tier.duration}
-                      </p>
-
-                      <div className="mb-3">
-                        <span className="text-2xl font-serif tracking-tight text-foreground font-semibold">
-                          {tier.price}
-                        </span>
-                      </div>
-
-                      <div className="w-8 h-px bg-foreground/15 mb-3" />
-
-                      <ul className="space-y-2 flex-1">
-                        {tier.features.map((f) => (
-                          <li
-                            key={f}
-                            className="text-foreground/70 text-[11px] font-mono tracking-wide flex items-start gap-2"
-                          >
-                            <span className="text-foreground/30 mt-px shrink-0">—</span>
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      {tier.note && (
-                        <p className="mt-3 text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] italic border-t border-foreground/10 pt-2">
-                          {tier.note}
-                        </p>
-                      )}
+                      {/* Book button */}
+                      <button
+                        onClick={() =>
+                          setBookingTier({
+                            categoryId: active.id,
+                            categoryLabel: active.label,
+                            tierName: tier.name,
+                            tierPrice: tier.price,
+                          })
+                        }
+                        className="mt-4 w-full py-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                      >
+                        Book {tier.name}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-
-                    {/* Book button */}
-                    <button
-                      onClick={() =>
-                        setBookingTier({
-                          categoryId: active.id,
-                          categoryLabel: active.label,
-                          tierName: tier.name,
-                          tierPrice: tier.price,
-                        })
-                      }
-                      className="mt-4 w-full py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                    >
-                      Book {tier.name}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Mobile Carousel Swipe Indicator */}
-              <div className="flex sm:hidden items-center justify-center gap-2 pt-2 text-[9px] font-mono text-foreground/40 uppercase tracking-widest">
-                <span>Swipe cards</span>
-                <span className="text-foreground/20">|</span>
-                <div className="flex items-center gap-1.5">
-                  {active.tiers.map((t, idx) => (
-                    <span key={idx} className="w-1.5 h-1.5 rounded-full bg-foreground/30" />
                   ))}
+                </div>
+
+                {/* Single-card Mobile Navigation Bar */}
+                <div className="flex items-center justify-between px-2 pt-1 text-[9px] font-mono text-foreground/60 shrink-0">
+                  <button
+                    disabled={mobileCardIndex === 0}
+                    onClick={() => scrollToMobileCard(Math.max(0, mobileCardIndex - 1))}
+                    className="p-1 disabled:opacity-20 text-foreground hover:text-foreground/80 transition-opacity cursor-pointer flex items-center gap-1 uppercase tracking-wider"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Prev</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {active.tiers.map((t, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => scrollToMobileCard(idx)}
+                        className={`transition-all duration-300 cursor-pointer ${
+                          mobileCardIndex === idx
+                            ? 'w-4 h-1.5 rounded-full bg-foreground'
+                            : 'w-1.5 h-1.5 rounded-full bg-foreground/25 hover:bg-foreground/50'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    disabled={mobileCardIndex === active.tiers.length - 1}
+                    onClick={() => scrollToMobileCard(Math.min(active.tiers.length - 1, mobileCardIndex + 1))}
+                    className="p-1 disabled:opacity-20 text-foreground hover:text-foreground/80 transition-opacity cursor-pointer flex items-center gap-1 uppercase tracking-wider"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               </div>
 
