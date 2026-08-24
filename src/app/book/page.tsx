@@ -483,9 +483,10 @@ function TermsLightbox({ onClose }: { onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-foreground/30 hover:text-foreground transition-colors"
+            aria-label="Close"
+            className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 stroke-[1.5]" />
           </button>
         </div>
 
@@ -821,9 +822,10 @@ function BookingFormLightbox({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-foreground/50 hover:text-foreground transition-colors cursor-pointer"
+            aria-label="Close"
+            className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 stroke-[1.5]" />
           </button>
         </div>
 
@@ -1162,9 +1164,10 @@ function EnquiryLightbox({ onClose }: { onClose: () => void }) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-foreground/40 hover:text-foreground transition-colors cursor-pointer"
+            aria-label="Close"
+            className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 stroke-[1.5]" />
           </button>
         </div>
 

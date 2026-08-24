@@ -741,9 +741,10 @@ export default function ShootsPage() {
 
                   <button
                     onClick={() => setSelectedBookingDetails(null)}
-                    className="p-1 text-foreground/50 hover:text-foreground border border-foreground/20 hover:bg-foreground/10 transition-colors cursor-pointer"
+                    aria-label="Close"
+                    className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-5 h-5 stroke-[1.5]" />
                   </button>
                 </div>
               </div>

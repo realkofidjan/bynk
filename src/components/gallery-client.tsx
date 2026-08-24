@@ -139,10 +139,11 @@ export default function GalleryClient() {
                 </button>
                 <button
                   onClick={() => setShoot(null)}
-                  className="flex items-center justify-center w-8 h-8 border border-foreground/20 hover:bg-foreground/5 transition-all shrink-0"
+                  aria-label="Close"
+                  className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer shrink-0"
                   title="Back to passcode entry"
                 >
-                  <X className="w-4 h-4 text-foreground/60" />
+                  <X className="w-5 h-5 stroke-[1.5]" />
                 </button>
               </div>
             </div>

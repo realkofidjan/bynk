@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Project } from '@/lib/projects';
+import { X } from 'lucide-react';
 
 // ─── Thumbnail Item with Shimmer Loader ─────────────────────────────────────
 
@@ -197,10 +198,10 @@ export function Lightbox({
           <button
             id="lightbox-close"
             onClick={handleClose}
-            className="font-mono text-[11px] uppercase tracking-[0.2em] text-foreground/40
-              hover:text-foreground/90 transition-colors duration-300 py-1 ml-6 flex-none"
+            aria-label="Close"
+            className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer flex-none"
           >
-            Close
+            <X className="w-5 h-5 stroke-[1.5]" />
           </button>
         </div>
 
