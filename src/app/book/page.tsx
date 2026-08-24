@@ -107,7 +107,7 @@ const categories: Category[] = [
     tiers: [
       {
         name: 'Signature',
-        price: 'GHS 1,000',
+        price: 'GHS 1,400',
         duration: 'Up to 1 hour · 1 location · 1 outfit',
         features: [
           'Individual portrait session',
@@ -121,7 +121,7 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 1,500',
+        price: 'GHS 1,900',
         duration: 'Up to 1.5 hours · 1–2 locations · 2 outfits',
         bestValue: true,
         features: [
@@ -136,7 +136,7 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 2,200',
+        price: 'GHS 2,800',
         duration: 'Up to 2.5 hours · Up to 2 locations · 3 outfits',
         features: [
           'Up to 2 locations & multiple lighting setups',
