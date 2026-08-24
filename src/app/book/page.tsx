@@ -456,7 +456,7 @@ function TermsLightbox({ onClose }: { onClose: () => void }) {
       initial="hidden"
       animate="visible"
       exit="hidden"
-      className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
+      className="fixed inset-0 z-[250] flex items-center justify-center p-0 sm:p-8"
       onClick={onClose}
     >
       {/* Backdrop */}
