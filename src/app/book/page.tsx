@@ -1248,7 +1248,7 @@ export default function BookPage() {
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 
       {/* Content container */}
-      <div className="relative z-10 flex flex-col h-full pt-20 sm:pt-24 pb-6 px-6 sm:px-10 lg:px-16">
+      <div className="relative z-10 flex flex-col h-full pt-20 sm:pt-24 pb-6 px-4 sm:px-10 lg:px-16 overflow-y-auto sm:overflow-hidden">
         {/* Header row */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -1313,7 +1313,7 @@ export default function BookPage() {
           </span>
         </motion.div>
 
-        {/* Rate cards */}
+        {/* Rate cards (Mobile Carousel + Desktop 3-Column Grid) */}
         <div className="flex-1 min-h-0">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1322,78 +1322,165 @@ export default function BookPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.35, ease }}
-              className="h-full grid grid-cols-1 sm:grid-cols-3 gap-px bg-foreground/[0.06] border border-foreground/[0.06]"
+              className="h-full flex flex-col justify-between"
             >
-              {active.tiers.map((tier) => (
-                <div
-                  key={tier.name}
-                  className={`
-                    group relative bg-background flex flex-col justify-between
-                    p-5 lg:p-6 xl:p-8 overflow-hidden
-                    transition-colors duration-500 hover:bg-foreground/[0.015]
-                    ${tier.bestValue ? 'bg-foreground/[0.012]' : ''}
-                  `}
-                >
-                  <div className="flex-1 flex flex-col">
-                    <div className="flex items-baseline justify-between mb-1">
-                      <h2 className="text-sm lg:text-base font-serif tracking-tight text-foreground">
-                        {tier.name}
-                      </h2>
-                      {tier.bestValue && (
-                        <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground/40 border border-foreground/10 px-1.5 py-0.5">
-                          Best Value
+              {/* Mobile Swipeable Cards Carousel (sm:hidden) */}
+              <div className="flex sm:hidden overflow-x-auto snap-x snap-mandatory gap-4 pb-4 pt-1 px-1 h-full min-h-0 custom-scrollbar">
+                {active.tiers.map((tier) => (
+                  <div
+                    key={tier.name}
+                    className={`
+                      w-[84vw] max-w-[320px] shrink-0 snap-center bg-background border border-foreground/20
+                      p-5 flex flex-col justify-between shadow-xl transition-all duration-300
+                      ${tier.bestValue ? 'border-foreground/40 bg-foreground/[0.02]' : ''}
+                    `}
+                  >
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex items-baseline justify-between mb-1">
+                        <h2 className="text-base font-serif tracking-tight text-foreground font-semibold">
+                          {tier.name}
+                        </h2>
+                        {tier.bestValue && (
+                          <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground bg-foreground/10 border border-foreground/30 px-2 py-0.5 font-medium">
+                            Best Value
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.15em] mb-3">
+                        {tier.duration}
+                      </p>
+
+                      <div className="mb-3">
+                        <span className="text-2xl font-serif tracking-tight text-foreground font-semibold">
+                          {tier.price}
                         </span>
+                      </div>
+
+                      <div className="w-8 h-px bg-foreground/15 mb-3" />
+
+                      <ul className="space-y-2 flex-1">
+                        {tier.features.map((f) => (
+                          <li
+                            key={f}
+                            className="text-foreground/70 text-[11px] font-mono tracking-wide flex items-start gap-2"
+                          >
+                            <span className="text-foreground/30 mt-px shrink-0">—</span>
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {tier.note && (
+                        <p className="mt-3 text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] italic border-t border-foreground/10 pt-2">
+                          {tier.note}
+                        </p>
                       )}
                     </div>
 
-                    <p className="text-foreground/35 text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.15em] mb-4 lg:mb-5">
-                      {tier.duration}
-                    </p>
+                    {/* Book button */}
+                    <button
+                      onClick={() =>
+                        setBookingTier({
+                          categoryId: active.id,
+                          categoryLabel: active.label,
+                          tierName: tier.name,
+                          tierPrice: tier.price,
+                        })
+                      }
+                      className="mt-4 w-full py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.25em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                    >
+                      Book {tier.name}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
 
-                    <div className="mb-4 lg:mb-5">
-                      <span className="text-xl lg:text-2xl xl:text-3xl font-serif tracking-tight text-foreground">
-                        {tier.price}
-                      </span>
+              {/* Mobile Carousel Swipe Indicator */}
+              <div className="flex sm:hidden items-center justify-center gap-2 pt-2 text-[9px] font-mono text-foreground/40 uppercase tracking-widest">
+                <span>Swipe cards</span>
+                <span className="text-foreground/20">|</span>
+                <div className="flex items-center gap-1.5">
+                  {active.tiers.map((t, idx) => (
+                    <span key={idx} className="w-1.5 h-1.5 rounded-full bg-foreground/30" />
+                  ))}
+                </div>
+              </div>
+
+              {/* Desktop 3-Column Grid (hidden sm:grid) */}
+              <div className="hidden sm:grid grid-cols-3 gap-px bg-foreground/[0.06] border border-foreground/[0.06] h-full">
+                {active.tiers.map((tier) => (
+                  <div
+                    key={tier.name}
+                    className={`
+                      group relative bg-background flex flex-col justify-between
+                      p-5 lg:p-6 xl:p-8 overflow-hidden
+                      transition-colors duration-500 hover:bg-foreground/[0.015]
+                      ${tier.bestValue ? 'bg-foreground/[0.012]' : ''}
+                    `}
+                  >
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex items-baseline justify-between mb-1">
+                        <h2 className="text-sm lg:text-base font-serif tracking-tight text-foreground">
+                          {tier.name}
+                        </h2>
+                        {tier.bestValue && (
+                          <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-foreground/40 border border-foreground/10 px-1.5 py-0.5">
+                            Best Value
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-foreground/35 text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.15em] mb-4 lg:mb-5">
+                        {tier.duration}
+                      </p>
+
+                      <div className="mb-4 lg:mb-5">
+                        <span className="text-xl lg:text-2xl xl:text-3xl font-serif tracking-tight text-foreground">
+                          {tier.price}
+                        </span>
+                      </div>
+
+                      <div className="w-6 h-px bg-foreground/10 mb-3 lg:mb-4" />
+
+                      <ul className="space-y-1.5 lg:space-y-2 flex-1">
+                        {tier.features.map((f) => (
+                          <li
+                            key={f}
+                            className="text-foreground/45 text-[10px] lg:text-[11px] font-mono tracking-wide flex items-start gap-2"
+                          >
+                            <span className="text-foreground/15 mt-px shrink-0">—</span>
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {tier.note && (
+                        <p className="mt-3 lg:mt-4 text-foreground/20 text-[9px] font-mono uppercase tracking-[0.15em] italic">
+                          {tier.note}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="w-6 h-px bg-foreground/10 mb-3 lg:mb-4" />
-
-                    <ul className="space-y-1.5 lg:space-y-2 flex-1">
-                      {tier.features.map((f) => (
-                        <li
-                          key={f}
-                          className="text-foreground/45 text-[10px] lg:text-[11px] font-mono tracking-wide flex items-start gap-2"
-                        >
-                          <span className="text-foreground/15 mt-px shrink-0">—</span>
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {tier.note && (
-                      <p className="mt-3 lg:mt-4 text-foreground/20 text-[9px] font-mono uppercase tracking-[0.15em] italic">
-                        {tier.note}
-                      </p>
-                    )}
+                    {/* Book button */}
+                    <button
+                      onClick={() =>
+                        setBookingTier({
+                          categoryId: active.id,
+                          categoryLabel: active.label,
+                          tierName: tier.name,
+                          tierPrice: tier.price,
+                        })
+                      }
+                      className="mt-4 lg:mt-5 flex items-center gap-2 text-foreground/40 hover:text-foreground text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.2em] transition-all duration-300 group/cta shrink-0 cursor-pointer"
+                    >
+                      Book
+                      <ArrowRight className="w-3 h-3 transition-transform duration-300 group-hover/cta:translate-x-1" />
+                    </button>
                   </div>
-
-                  {/* Book button */}
-                  <button
-                    onClick={() =>
-                      setBookingTier({
-                        categoryId: active.id,
-                        categoryLabel: active.label,
-                        tierName: tier.name,
-                        tierPrice: tier.price,
-                      })
-                    }
-                    className="mt-4 lg:mt-5 flex items-center gap-2 text-foreground/40 hover:text-foreground text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.2em] transition-all duration-300 group/cta shrink-0 cursor-pointer"
-                  >
-                    Book
-                    <ArrowRight className="w-3 h-3 transition-transform duration-300 group-hover/cta:translate-x-1" />
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </motion.div>
           </AnimatePresence>
         </div>
