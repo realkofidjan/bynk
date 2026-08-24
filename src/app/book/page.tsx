@@ -1363,14 +1363,14 @@ export default function BookPage() {
                 <div
                   ref={mobileCarouselRef}
                   onScroll={handleMobileScroll}
-                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none w-full h-full min-h-0 space-x-0"
+                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none w-full h-full min-h-0 px-4 py-1 gap-4"
                 >
                   {active.tiers.map((tier) => (
                     <div
                       key={tier.name}
                       className={`
-                        w-full min-w-full shrink-0 snap-center snap-always bg-background border border-foreground/20
-                        p-6 flex flex-col justify-between items-center text-center shadow-xl transition-all duration-300
+                        w-[calc(100vw-3.5rem)] max-w-[320px] shrink-0 snap-center snap-always bg-background border border-foreground/20
+                        p-5 flex flex-col justify-between items-center text-center shadow-xl transition-all duration-300
                         ${tier.bestValue ? 'border-foreground/40 bg-foreground/[0.02]' : ''}
                       `}
                     >
