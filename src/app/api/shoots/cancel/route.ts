@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase';
+import { calculateBookingFinancials } from '@/lib/booking-types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,19 +40,13 @@ export async function POST(request: NextRequest) {
 
     const isEligibleForAddOnRefund = diffDays >= 2;
 
-    // Calculate add-ons cost vs deposit
-    // Base package = total_price - add_ons_total (or estimated)
-    const depositPaid = booking.deposit_amount || 0;
-    
-    // Add-on refund calculation
-    let addOnRefundGhs = 0;
-    if (isEligibleForAddOnRefund && booking.add_ons && booking.add_ons.length > 0) {
-      // Add-ons were paid 100% upfront
-      // Base deposit was 50% of base price
-      // addOnRefundGhs = depositPaid - (50% of base price)
-      // or estimated from total_price
-      addOnRefundGhs = Math.max(0, depositPaid - Math.round((booking.total_price - depositPaid) / 1));
-    }
+    // Calculate add-ons cost using financial calculator
+    const { addOnsTotal } = calculateBookingFinancials({
+      total_price: booking.total_price || 0,
+      add_ons: booking.add_ons || [],
+    });
+
+    const addOnRefundGhs = isEligibleForAddOnRefund ? addOnsTotal : 0;
 
     // Mark as cancelled in Supabase
     const { error: updateErr } = await supabase
@@ -70,6 +65,8 @@ export async function POST(request: NextRequest) {
       status: 'cancelled',
       diffDays,
       isEligibleForAddOnRefund,
+      addOnsTotal,
+      addOnRefundGhs,
       clientName: booking.name,
       phone: booking.phone,
       shootDate: booking.date,

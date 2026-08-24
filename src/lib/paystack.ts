@@ -108,19 +108,97 @@ export async function initializePaystackTransaction({
  */
 export async function verifyPaystackTransaction(reference: string) {
   if (!PAYSTACK_SECRET_KEY) {
-    throw new Error('PAYSTACK_SECRET_KEY is not configured');
+    return { success: false, error: 'PAYSTACK_SECRET_KEY is not configured' };
   }
 
-  const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: {
-      Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-    },
-  });
+  try {
+    const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+      },
+    });
 
-  const data = await res.json();
-  if (!res.ok || !data.status) {
-    throw new Error(data.message || 'Paystack verification failed');
+    const data = await res.json();
+
+    if (!res.ok || !data.status) {
+      return { success: false, error: data.message || 'Transaction verification failed' };
+    }
+
+    return {
+      success: true,
+      status: data.data.status,
+      amount: data.data.amount / 100, // in GHS
+      metadata: data.data.metadata,
+      customer: data.data.customer,
+    };
+  } catch (err: any) {
+    console.error('Paystack verification error:', err);
+    return { success: false, error: err.message || 'Verification failed' };
+  }
+}
+
+export type RefundPaymentParams = {
+  reference: string;
+  amountInGhs?: number; // if specified, partial refund amount in GHS
+  merchantNote?: string;
+};
+
+export type RefundPaymentResult = {
+  success: boolean;
+  refundId?: string;
+  status?: string;
+  error?: string;
+};
+
+/**
+ * Issue an automated refund via Paystack API directly to customer's Mobile Money or Bank Card.
+ */
+export async function refundPaystackTransaction({
+  reference,
+  amountInGhs,
+  merchantNote = 'BYNK Photography add-on refund',
+}: RefundPaymentParams): Promise<RefundPaymentResult> {
+  if (!PAYSTACK_SECRET_KEY) {
+    return { success: false, error: 'PAYSTACK_SECRET_KEY is not configured' };
   }
 
-  return data.data;
+  try {
+    const payload: Record<string, any> = {
+      transaction: reference,
+      merchant_note: merchantNote,
+    };
+
+    if (amountInGhs && amountInGhs > 0) {
+      payload.amount = Math.round(amountInGhs * 100); // pesewas
+    }
+
+    const res = await fetch('https://api.paystack.co/refund', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.status) {
+      console.error('Paystack refund API error:', data);
+      return {
+        success: false,
+        error: data.message || 'Paystack refund call failed',
+      };
+    }
+
+    return {
+      success: true,
+      refundId: String(data.data?.id || ''),
+      status: data.data?.status || 'processed',
+    };
+  } catch (err: any) {
+    console.error('Paystack refund exception:', err);
+    return { success: false, error: err.message || 'Failed to communicate with Paystack Refund API' };
+  }
 }
