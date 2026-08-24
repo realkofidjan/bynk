@@ -566,7 +566,7 @@ export default function ShootsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
             onClick={() => setCancellingShoot(null)}
           >
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
@@ -576,7 +576,7 @@ export default function ShootsPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-md bg-background border border-red-500/30 p-6 rounded-none space-y-4 shadow-2xl"
+              className="relative w-full max-w-[92vw] sm:max-w-md max-h-[calc(100vh-4.5rem)] bg-background border border-red-500/30 p-6 rounded-none space-y-4 shadow-2xl overflow-y-auto"
             >
               <div className="flex items-center gap-3 text-red-400 border-b border-foreground/10 pb-3">
                 <AlertCircle className="w-5 h-5 shrink-0" />
@@ -629,7 +629,7 @@ export default function ShootsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-8"
             onClick={() => setCancelResult(null)}
           >
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
@@ -700,7 +700,7 @@ export default function ShootsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-6"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 sm:p-6"
             onClick={() => setSelectedBookingDetails(null)}
           >
             <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
@@ -710,7 +710,7 @@ export default function ShootsPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-2xl bg-background border border-foreground/20 p-5 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground"
+              className="relative w-full max-w-[94vw] sm:max-w-2xl max-h-[calc(100vh-4.5rem)] bg-background border border-foreground/20 p-4 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground"
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-foreground/15 pb-3">

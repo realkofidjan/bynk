@@ -163,7 +163,7 @@ export function Lightbox({
   return (
     <div
       id="lightbox-overlay"
-      className={`fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12 transition-all duration-400 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-3 pt-16 md:p-12 transition-all duration-400 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={handleClose}
@@ -177,7 +177,7 @@ export function Lightbox({
 
       {/* Content Container with fixed height flex structure */}
       <div
-        className={`relative z-10 flex flex-col w-full max-w-5xl h-[85vh] max-h-[850px] transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
+        className={`relative z-10 flex flex-col w-full max-w-5xl h-[calc(100vh-4.5rem)] max-h-[850px] transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] ${
           visible
             ? 'opacity-100 scale-100 translate-y-0'
             : 'opacity-0 scale-95 translate-y-4'
