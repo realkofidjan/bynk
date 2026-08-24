@@ -304,26 +304,26 @@ function GalleryScene({
 		}));
 	}, [depthRange, spatialPositions, totalImages, visibleCount]);
 
-	// Handle scroll input
+	// Handle scroll input (Reversed direction)
 	const handleWheel = useCallback(
 		(event: WheelEvent) => {
 			event.preventDefault();
-			setScrollVelocity((prev) => prev + event.deltaY * 0.01 * speed);
+			setScrollVelocity((prev) => prev - event.deltaY * 0.01 * speed);
 			setAutoPlay(false);
 			lastInteraction.current = Date.now();
 		},
 		[speed]
 	);
 
-	// Handle keyboard input
+	// Handle keyboard input (Reversed direction)
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-				setScrollVelocity((prev) => prev - 2 * speed);
+				setScrollVelocity((prev) => prev + 2 * speed);
 				setAutoPlay(false);
 				lastInteraction.current = Date.now();
 			} else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-				setScrollVelocity((prev) => prev + 2 * speed);
+				setScrollVelocity((prev) => prev - 2 * speed);
 				setAutoPlay(false);
 				lastInteraction.current = Date.now();
 			}
@@ -331,7 +331,7 @@ function GalleryScene({
 		[speed]
 	);
 
-	// Handle touch drag input for mobile screens (behaves identical to desktop mouse wheel)
+	// Handle touch drag input for mobile screens (Reversed direction)
 	const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
 	const handleTouchStart = useCallback((event: TouchEvent) => {
@@ -357,8 +357,8 @@ function GalleryScene({
 
 			const delta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
 
-			// Add touch drag delta into scrollVelocity matching desktop wheel behavior
-			setScrollVelocity((prev) => prev + delta * 0.015 * speed);
+			// Add touch drag delta into scrollVelocity (Reversed direction)
+			setScrollVelocity((prev) => prev - delta * 0.015 * speed);
 
 			touchStartRef.current = { x: currentX, y: currentY };
 			setAutoPlay(false);
