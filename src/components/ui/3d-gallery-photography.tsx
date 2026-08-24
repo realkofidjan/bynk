@@ -586,13 +586,13 @@ export default function InfiniteGallery({
 	style,
 	onImageClick,
 	fadeSettings = {
-		fadeIn: { start: 0.05, end: 0.25 },
-		fadeOut: { start: 0.4, end: 0.43 },
+		fadeIn: { start: 0.02, end: 0.15 },
+		fadeOut: { start: 0.85, end: 0.98 },
 	},
 	blurSettings = {
 		blurIn: { start: 0.0, end: 0.1 },
-		blurOut: { start: 0.4, end: 0.43 },
-		maxBlur: 8.0,
+		blurOut: { start: 0.85, end: 0.98 },
+		maxBlur: 3.0,
 	},
 }: InfiniteGalleryProps) {
 	const [webglSupported, setWebglSupported] = useState(true);
