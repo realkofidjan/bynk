@@ -147,34 +147,32 @@ export default function GalleryClient() {
               </div>
             </div>
 
-            {/* Gallery Photos Grid - Scrollable internally */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pr-1 pb-16">
+            {/* Gallery Photos Grid - 2 columns on mobile, uniform square tiles with even gaps */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4 pr-1 pb-16">
               {shoot.images.map((image, index) => (
                 <motion.div
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.04 }}
                   key={image.src}
-                  className={`relative group aspect-[4/5] bg-foreground/5 overflow-hidden rounded-none ${
-                    index % 5 === 0 ? 'sm:col-span-2 sm:row-span-2 sm:aspect-auto min-h-[260px]' : ''
-                  }`}
+                  className="relative group aspect-square bg-foreground/5 overflow-hidden rounded-none"
                 >
                   <Image
                     src={image.src}
                     alt={image.alt}
                     fill
                     className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    sizes="(max-width: 768px) 50vw, 33vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-500" />
                   <a
                     href={image.src}
                     download={image.filename}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-3 right-3 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-black/75 backdrop-blur-md text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 ease-out hover:bg-black/90 shadow-md"
+                    className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 z-10 flex items-center justify-center w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-black/75 backdrop-blur-md text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 ease-out hover:bg-black/90 shadow-md"
                     title={`Download ${image.filename}`}
                   >
-                    <Download className="w-4 h-4" />
+                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </a>
                 </motion.div>
               ))}
