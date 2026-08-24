@@ -230,9 +230,7 @@ function GalleryScene({
 		maxBlur: 3.0,
 	},
 }: Omit<InfiniteGalleryProps, 'className' | 'style'>) {
-	const [scrollVelocity, setScrollVelocity] = useState(0);
-	const [autoPlay, setAutoPlay] = useState(true);
-	const lastInteraction = useRef(Date.now());
+	const scrollVelocityRef = useRef(0.8);
 
 	// Normalize images to objects
 	const normalizedImages = useMemo(
@@ -311,9 +309,7 @@ function GalleryScene({
 	const handleWheel = useCallback(
 		(event: WheelEvent) => {
 			event.preventDefault();
-			setScrollVelocity((prev) => prev - event.deltaY * 0.01 * speed);
-			setAutoPlay(false);
-			lastInteraction.current = Date.now();
+			scrollVelocityRef.current -= event.deltaY * 0.02 * speed;
 		},
 		[speed]
 	);
@@ -322,13 +318,9 @@ function GalleryScene({
 	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-				setScrollVelocity((prev) => prev + 2 * speed);
-				setAutoPlay(false);
-				lastInteraction.current = Date.now();
+				scrollVelocityRef.current += 3.5 * speed;
 			} else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-				setScrollVelocity((prev) => prev - 2 * speed);
-				setAutoPlay(false);
-				lastInteraction.current = Date.now();
+				scrollVelocityRef.current -= 3.5 * speed;
 			}
 		},
 		[speed]
@@ -343,8 +335,6 @@ function GalleryScene({
 				x: event.touches[0].clientX,
 				y: event.touches[0].clientY,
 			};
-			setAutoPlay(false);
-			lastInteraction.current = Date.now();
 		}
 	}, []);
 
@@ -361,11 +351,10 @@ function GalleryScene({
 			// Determine dominant swipe direction (vertical vs horizontal)
 			const delta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
 
-			setScrollVelocity((prev) => prev - delta * 0.02 * speed);
+			// Direct high-sensitivity touch velocity update
+			scrollVelocityRef.current -= delta * 0.08 * speed;
 
 			touchStartRef.current = { x: currentX, y: currentY };
-			setAutoPlay(false);
-			lastInteraction.current = Date.now();
 		},
 		[speed]
 	);
@@ -397,24 +386,18 @@ function GalleryScene({
 		};
 	}, [handleWheel, handleKeyDown, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
-	// Auto-play logic
-	useEffect(() => {
-		const interval = setInterval(() => {
-			if (Date.now() - lastInteraction.current > 3000) {
-				setAutoPlay(true);
-			}
-		}, 1000);
-		return () => clearInterval(interval);
-	}, []);
-
 	useFrame((state, delta) => {
-		// Apply auto-play
-		if (autoPlay) {
-			setScrollVelocity((prev) => prev + 0.3 * delta);
-		}
+		// Target continuous auto-play speed so it NEVER freezes or stagnates
+		const targetAutoSpeed = 0.8 * speed;
 
-		// Damping
-		setScrollVelocity((prev) => prev * 0.95);
+		// Smoothly lerp velocity back to target auto-play speed after user swipe
+		scrollVelocityRef.current = THREE.MathUtils.lerp(
+			scrollVelocityRef.current,
+			targetAutoSpeed,
+			Math.min(delta * 4, 0.1)
+		);
+
+		const scrollVelocity = scrollVelocityRef.current;
 
 		// Update time uniform for all materials
 		const time = state.clock.getElapsedTime();
@@ -432,7 +415,7 @@ function GalleryScene({
 		const halfRange = totalRange / 2;
 
 		planesData.current.forEach((plane, i) => {
-			let newZ = plane.z + scrollVelocity * delta * 10;
+			let newZ = plane.z + scrollVelocity * delta * 15;
 			let wrapsForward = 0;
 			let wrapsBackward = 0;
 
@@ -668,7 +651,8 @@ if (typeof window !== 'undefined') {
 		>
 			<Canvas
 				camera={{ position: [0, 0, 0], fov: 55 }}
-				gl={{ antialias: true, alpha: true }}
+				gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+				dpr={[1, 1.5]}
 			>
 				<Suspense fallback={null}>
 					<GalleryScene
