@@ -306,27 +306,14 @@ export default function ShootsPage() {
           </h1>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          {activeTab !== 'custom-order' && (
-            <button
-              onClick={() => handleTabChange('custom-order')}
-              className="flex items-center gap-1.5 bg-foreground text-background text-[10px] uppercase tracking-[0.15em] px-3.5 py-2 font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create Custom Order</span>
-            </button>
-          )}
-
-          {/* Refresh button */}
-          <button
-            onClick={fetchShoots}
-            className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] border border-foreground/20 px-3 py-2 hover:bg-foreground/[0.05] transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading && activeTab !== 'custom-order' ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+        {/* Refresh button */}
+        <button
+          onClick={fetchShoots}
+          className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] border border-foreground/20 px-3 py-2 hover:bg-foreground/[0.05] transition-colors cursor-pointer self-start sm:self-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading && activeTab !== 'custom-order' ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </header>
 
       {/* Main Container */}
