@@ -97,7 +97,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <main className="h-screen max-h-screen bg-background text-foreground pt-24 pb-6 px-4 sm:px-8 lg:px-16 flex flex-col overflow-hidden selection:bg-foreground/20">
+    <main className="relative z-10 h-screen max-h-screen bg-background text-foreground pt-24 pb-6 px-4 sm:px-8 lg:px-16 flex flex-col overflow-hidden selection:bg-foreground/20">
       {/* Background ambient glow */}
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 

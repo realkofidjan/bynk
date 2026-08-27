@@ -58,8 +58,8 @@ export function GlobalGalleryProvider({
     >
       {/* Persistent 3D Gallery Canvas - Never Unmounts across page navigation */}
       <div
-        className={`fixed inset-0 z-0 transition-all duration-700 ease-out ${
-          isHomePage ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-25'
+        className={`fixed inset-0 transition-all duration-700 ease-out ${
+          isHomePage ? 'pointer-events-auto opacity-100 z-0 visible' : 'pointer-events-none opacity-0 -z-10 invisible'
         }`}
       >
         <InfiniteGallery

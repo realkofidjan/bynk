@@ -20,6 +20,8 @@ import {
   DollarSign,
   Check,
   ExternalLink,
+  Plus,
+  Sparkles,
 } from 'lucide-react';
 import {
   SLOT_LABELS,
@@ -31,12 +33,14 @@ import {
   getBookingEndTime,
   formatTimeLabel,
 } from '@/lib/booking-types';
+import CustomOrderCreator from '@/components/custom-order-creator';
 
 export default function ShootsPage() {
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'custom-order'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
+
 
   const [shoots, setShoots] = useState<Booking[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -125,6 +129,7 @@ export default function ShootsPage() {
   };
 
   const fetchShoots = useCallback(async () => {
+    if (activeTab === 'custom-order') return;
     try {
       setLoading(true);
       setError('');
@@ -152,12 +157,25 @@ export default function ShootsPage() {
     }
   }, [activeTab, page, searchQuery]);
 
+  // Check URL param on mount (e.g. /shoots?tab=create or /shoots?tab=custom-order)
   useEffect(() => {
-    fetchShoots();
-  }, [fetchShoots]);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'create' || tabParam === 'custom-order' || tabParam === 'custom' || tabParam === 'order') {
+        setActiveTab('custom-order');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'custom-order') {
+      fetchShoots();
+    }
+  }, [fetchShoots, activeTab]);
 
   // Reset to page 1 on tab or search change
-  const handleTabChange = (tab: 'upcoming' | 'completed') => {
+  const handleTabChange = (tab: 'upcoming' | 'completed' | 'custom-order') => {
     setActiveTab(tab);
     setPage(1);
   };
@@ -179,24 +197,20 @@ export default function ShootsPage() {
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send payment email');
+      }
+
+      const { depositPaid, remainingBalance } = calculateBookingFinancials({
+        total_price: shoot.total_price || 0,
+        add_ons: shoot.add_ons || [],
+      });
+
       const paystackUrl = data.authorizationUrl;
 
       if (paystackUrl) {
-        const [y, m, d] = shoot.date.split('-').map(Number);
-        const formattedDate = new Date(y, m - 1, d).toDateString();
-        const { depositPaid, remainingBalance } = calculateBookingFinancials({
-          total_price: shoot.total_price || 0,
-          add_ons: shoot.add_ons || [],
-        });
-
-        const waText = [
-          `Hi ${shoot.name}, regarding your upcoming ${shoot.category} (${shoot.tier}) photography shoot on ${formattedDate}:`,
-          ``,
-          `Here is your Paystack link to complete your remaining balance of GHS ${remainingBalance.toLocaleString()}:`,
-          `${paystackUrl}`,
-          ``,
-          `Thank you! — BYNK Photography`,
-        ].join('\n');
+        const waText = `Hi ${shoot.name}, your remaining balance for your shoot on ${shoot.date} (${shoot.tier}) is GHS ${remainingBalance.toLocaleString()}.\n\nPlease complete your balance payment securely via Paystack using this link:\n${paystackUrl}\n\nThank you — BYNK Photography`;
 
         window.open(
           `https://wa.me/${shoot.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waText)}`,
@@ -280,7 +294,7 @@ export default function ShootsPage() {
   };
 
   return (
-    <main className="h-screen max-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono pt-20 sm:pt-24 pb-4 flex flex-col overflow-hidden">
+    <main className="relative z-10 h-screen max-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono pt-20 sm:pt-24 pb-4 flex flex-col overflow-hidden">
       {/* Header Bar */}
       <header className="flex-none border-b border-foreground/10 bg-background/90 backdrop-blur-md px-6 sm:px-12 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -288,18 +302,31 @@ export default function ShootsPage() {
             BYNK Photography · Admin Dashboard
           </p>
           <h1 className="text-xl sm:text-2xl font-serif tracking-tight text-foreground">
-            Shoots &amp; Bookings
+            Shoots &amp; Custom Orders
           </h1>
         </div>
 
-        {/* Refresh button */}
-        <button
-          onClick={fetchShoots}
-          className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] border border-foreground/20 px-3 py-2 hover:bg-foreground/[0.05] transition-colors self-start sm:self-auto cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        {/* Action Controls */}
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {activeTab !== 'custom-order' && (
+            <button
+              onClick={() => handleTabChange('custom-order')}
+              className="flex items-center gap-1.5 bg-foreground text-background text-[10px] uppercase tracking-[0.15em] px-3.5 py-2 font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create Custom Order</span>
+            </button>
+          )}
+
+          {/* Refresh button */}
+          <button
+            onClick={fetchShoots}
+            className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] border border-foreground/20 px-3 py-2 hover:bg-foreground/[0.05] transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading && activeTab !== 'custom-order' ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </header>
 
       {/* Main Container */}
@@ -307,7 +334,7 @@ export default function ShootsPage() {
         {/* Controls Row: Tabs & Search */}
         <div className="flex-none flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-foreground/10 pb-4 mb-4">
           {/* Tabs */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => handleTabChange('upcoming')}
               className={`px-4 py-2 text-[11px] uppercase tracking-[0.2em] border transition-all cursor-pointer ${
@@ -329,23 +356,46 @@ export default function ShootsPage() {
             >
               Completed ({activeTab === 'completed' ? totalCount : '...'})
             </button>
+
+            <button
+              onClick={() => handleTabChange('custom-order')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-[11px] uppercase tracking-[0.2em] border transition-all cursor-pointer ${
+                activeTab === 'custom-order'
+                  ? 'bg-foreground text-background border-foreground font-semibold shadow-sm'
+                  : 'bg-foreground/[0.03] text-foreground/70 border-foreground/25 hover:text-foreground hover:border-foreground/40'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>+ Create Custom Order</span>
+            </button>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/40" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search client, email, phone..."
-              className="w-full bg-foreground/[0.03] border border-foreground/20 pl-9 pr-3 py-2 text-[11px] placeholder:text-foreground/30 focus:outline-none focus:border-foreground transition-colors"
-            />
-          </div>
+          {/* Search Box (only shown for shoots listing) */}
+          {activeTab !== 'custom-order' && (
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/40" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Search client, email, phone..."
+                className="w-full bg-foreground/[0.03] border border-foreground/20 pl-9 pr-3 py-2 text-[11px] placeholder:text-foreground/30 focus:outline-none focus:border-foreground transition-colors"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Content Table / Cards */}
-        {loading ? (
+        {/* Main Content Area */}
+        {activeTab === 'custom-order' ? (
+          <div className="flex-1 overflow-hidden min-h-0">
+            <CustomOrderCreator
+              onOrderCreated={() => {
+                fetchShoots();
+              }}
+              onViewShoots={() => handleTabChange('upcoming')}
+            />
+          </div>
+        ) : loading ? (
           <div className="py-20 text-center text-foreground/40 text-xs">
             Loading shoots data...
           </div>
@@ -532,7 +582,7 @@ export default function ShootsPage() {
         )}
 
         {/* Fixed Pagination Controls */}
-        {totalPages > 1 && (
+        {activeTab !== 'custom-order' && totalPages > 1 && (
           <div className="flex-none flex items-center justify-between pt-3 mt-2 border-t border-foreground/10 text-xs font-mono">
             <span className="text-foreground/50 text-[11px]">
               Page {page} of {totalPages} ({totalCount} total shoots)

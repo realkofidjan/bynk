@@ -27,6 +27,12 @@ export interface ChronoSelectProps {
   yearRange?: [number, number]
   /** Dates that are fully blocked and cannot be selected */
   disabledDates?: Date[]
+  /** Allow scheduling within 4 days notice (useful for admin/backend orders) */
+  disableAdvanceNotice?: boolean
+  /** Allow selecting Sundays */
+  allowSundays?: boolean
+  /** Allow selecting past dates */
+  allowPastDates?: boolean
 }
 
 export function ChronoSelect({
@@ -36,6 +42,9 @@ export function ChronoSelect({
   className,
   yearRange = [2026, 2035],
   disabledDates = [],
+  disableAdvanceNotice = false,
+  allowSundays = false,
+  allowPastDates = false,
 }: ChronoSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [selected, setSelected] = React.useState<Date | undefined>(value)
@@ -43,6 +52,9 @@ export function ChronoSelect({
 
   React.useEffect(() => {
     setSelected(value)
+    if (value) {
+      setMonth(value)
+    }
   }, [value])
 
   // years array
@@ -51,22 +63,34 @@ export function ChronoSelect({
     return Array.from({ length: end - start + 1 }, (_, i) => start + i)
   }, [yearRange])
 
-  // Build the disabled matchers for react-day-picker (Enforce min 4-day advance notice)
+  // Build the disabled matchers for react-day-picker
   const disabledMatchers = React.useMemo(() => {
-    const minNoticeDate = new Date()
-    minNoticeDate.setHours(0, 0, 0, 0)
-    minNoticeDate.setDate(minNoticeDate.getDate() + 4)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const minNoticeDate = new Date(today)
+    minNoticeDate.setDate(today.getDate() + 4)
 
     const matchers: Array<Date | { dayOfWeek: number[] } | { before: Date }> = [
-      // All Sundays
-      { dayOfWeek: [0] },
-      // Dates less than 4 days from today
-      { before: minNoticeDate },
-      // Fully blocked dates
       ...disabledDates,
     ]
+
+    // Block Sundays if not allowed
+    if (!allowSundays) {
+      matchers.push({ dayOfWeek: [0] })
+    }
+
+    // Enforce notice or past dates
+    if (!allowPastDates) {
+      if (disableAdvanceNotice) {
+        matchers.push({ before: today })
+      } else {
+        matchers.push({ before: minNoticeDate })
+      }
+    }
+
     return matchers
-  }, [disabledDates])
+  }, [disabledDates, allowSundays, allowPastDates, disableAdvanceNotice])
 
   const handleSelect = (date: Date | undefined) => {
     setSelected(date)
