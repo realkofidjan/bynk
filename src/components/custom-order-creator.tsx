@@ -327,6 +327,7 @@ export default function CustomOrderCreator({
   const [category, setCategory] = useState<string>('portraits');
   const [selectedTier, setSelectedTier] = useState<string>('Signature');
   const [packageTitle, setPackageTitle] = useState('Studio Portraits — Signature');
+  const [basePackagePrice, setBasePackagePrice] = useState<number>(1000);
   
   // Default to tomorrow's date
   const tomorrow = new Date();
@@ -341,6 +342,33 @@ export default function CustomOrderCreator({
   const [fullDay, setFullDay] = useState(false);
   const [notes, setNotes] = useState('Professional studio setup\n• Guided posing & creative direction\n• 10 edited · 5 retouched images\n• Private online gallery');
 
+  // Add-ons & Custom Line Items
+  const [selectedStandardAddons, setSelectedStandardAddons] = useState<string[]>([]);
+  const [customAddons, setCustomAddons] = useState<CustomAddonItem[]>([]);
+  const [newAddonName, setNewAddonName] = useState('');
+  const [newAddonPrice, setNewAddonPrice] = useState('');
+
+  // Derived Add-on Totals
+  const standardAddonsTotal = React.useMemo(() => {
+    return selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0);
+  }, [selectedStandardAddons]);
+
+  const customAddonsTotal = React.useMemo(() => {
+    return customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
+  }, [customAddons]);
+
+  const allAddonsTotal = standardAddonsTotal + customAddonsTotal;
+
+  // Pricing & Payment Configuration
+  const [totalPriceOverride, setTotalPriceOverride] = useState<number | null>(null);
+  const totalNum = totalPriceOverride !== null ? totalPriceOverride : (basePackagePrice + allAddonsTotal);
+  const totalPrice = totalNum;
+
+  const [paymentOption, setPaymentOption] = useState<'deposit' | 'full' | 'paid_offline'>('deposit');
+  const [customDepositAmount, setCustomDepositAmount] = useState<number | ''>(500);
+  const [isCustomDepositInput, setIsCustomDepositInput] = useState(false);
+  const [sendEmail, setSendEmail] = useState(true);
+
   // Handle Category Change
   const handleCategoryChange = (catId: string) => {
     setCategory(catId);
@@ -349,8 +377,10 @@ export default function CustomOrderCreator({
       const defaultTier = cat.tiers[0];
       setSelectedTier(defaultTier.name);
       setPackageTitle(`${cat.label} — ${defaultTier.name}`);
-      setTotalPrice(defaultTier.priceNum);
-      setCustomDepositAmount(Math.round(defaultTier.priceNum / 2));
+      setBasePackagePrice(defaultTier.priceNum);
+      setTotalPriceOverride(null);
+      setIsCustomDepositInput(false);
+      setCustomDepositAmount(Math.round(defaultTier.priceNum / 2) + allAddonsTotal);
       setDurationMinutes(defaultTier.durationMinutes);
       setFullDay(Boolean(defaultTier.fullDay));
       setNotes(defaultTier.features.join('\n• '));
@@ -364,8 +394,10 @@ export default function CustomOrderCreator({
     const tierObj = cat?.tiers.find((t) => t.name === tierName);
     if (tierObj) {
       setPackageTitle(`${cat?.label} — ${tierObj.name}`);
-      setTotalPrice(tierObj.priceNum);
-      setCustomDepositAmount(Math.round(tierObj.priceNum / 2));
+      setBasePackagePrice(tierObj.priceNum);
+      setTotalPriceOverride(null);
+      setIsCustomDepositInput(false);
+      setCustomDepositAmount(Math.round(tierObj.priceNum / 2) + allAddonsTotal);
       setDurationMinutes(tierObj.durationMinutes);
       setFullDay(Boolean(tierObj.fullDay));
       setNotes(tierObj.features.join('\n• '));
@@ -394,19 +426,6 @@ export default function CustomOrderCreator({
     return slots;
   }, [durationMinutes]);
 
-  // Add-ons & Custom Line Items
-  const [selectedStandardAddons, setSelectedStandardAddons] = useState<string[]>([]);
-  const [customAddons, setCustomAddons] = useState<CustomAddonItem[]>([]);
-  const [newAddonName, setNewAddonName] = useState('');
-  const [newAddonPrice, setNewAddonPrice] = useState('');
-
-  // Pricing & Payment Configuration
-  const [totalPrice, setTotalPrice] = useState<number | ''>(1500);
-  const [paymentOption, setPaymentOption] = useState<'deposit' | 'full' | 'paid_offline'>('deposit');
-  const [customDepositAmount, setCustomDepositAmount] = useState<number | ''>(750);
-  const [isCustomDepositInput, setIsCustomDepositInput] = useState(false);
-  const [sendEmail, setSendEmail] = useState(true);
-
   // Status & submission state
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -422,11 +441,18 @@ export default function CustomOrderCreator({
   const [copiedPaystack, setCopiedPaystack] = useState(false);
   const [copiedInvoice, setCopiedInvoice] = useState(false);
 
-  // Auto calculate 50% deposit default when totalPrice changes
+  // Manual total price input
   const handleTotalPriceChange = (val: number | '') => {
-    setTotalPrice(val);
+    if (val === '') {
+      setTotalPriceOverride(0);
+      setBasePackagePrice(0);
+    } else {
+      setTotalPriceOverride(val);
+      setBasePackagePrice(Math.max(0, val - allAddonsTotal));
+    }
     if (!isCustomDepositInput && typeof val === 'number') {
-      setCustomDepositAmount(Math.round(val / 2));
+      const computedBase = Math.max(0, val - allAddonsTotal);
+      setCustomDepositAmount(Math.round(computedBase / 2) + allAddonsTotal);
     }
   };
 
@@ -442,73 +468,26 @@ export default function CustomOrderCreator({
     setCustomAddons((prev) => [...prev, newItem]);
     setNewAddonName('');
     setNewAddonPrice('');
-
-    // Optionally bump total price
-    if (priceNum > 0 && typeof totalPrice === 'number') {
-      const newTotal = totalPrice + priceNum;
-      setTotalPrice(newTotal);
-      if (!isCustomDepositInput) {
-        const nextAddonsTotal =
-          selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
-          customAddons.reduce((sum, c) => sum + (c.price || 0), 0) +
-          priceNum;
-        const nextBase = Math.max(0, newTotal - nextAddonsTotal);
-        setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
-      }
-    }
+    setTotalPriceOverride(null);
   };
 
   const handleRemoveCustomAddon = (id: string, price: number) => {
     setCustomAddons((prev) => prev.filter((item) => item.id !== id));
-    if (price > 0 && typeof totalPrice === 'number') {
-      const newTotal = Math.max(0, totalPrice - price);
-      setTotalPrice(newTotal);
-      if (!isCustomDepositInput) {
-        const nextAddonsTotal = Math.max(
-          0,
-          selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
-            customAddons.filter((item) => item.id !== id).reduce((sum, c) => sum + (c.price || 0), 0)
-        );
-        const nextBase = Math.max(0, newTotal - nextAddonsTotal);
-        setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
-      }
-    }
+    setTotalPriceOverride(null);
   };
 
   // Toggle standard add-on
   const toggleStandardAddon = (addonKey: string) => {
     const isSelected = selectedStandardAddons.includes(addonKey);
-    const addonPrice = ADDON_PRICES[addonKey] || 0;
     let nextAddons: string[];
 
     if (isSelected) {
       nextAddons = selectedStandardAddons.filter((k) => k !== addonKey);
-      if (typeof totalPrice === 'number') {
-        const newTotal = Math.max(0, totalPrice - addonPrice);
-        setTotalPrice(newTotal);
-        if (!isCustomDepositInput) {
-          const nextAddonsTotal =
-            nextAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
-            customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
-          const nextBase = Math.max(0, newTotal - nextAddonsTotal);
-          setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
-        }
-      }
     } else {
       nextAddons = [...selectedStandardAddons, addonKey];
-      if (typeof totalPrice === 'number') {
-        const newTotal = totalPrice + addonPrice;
-        setTotalPrice(newTotal);
-        if (!isCustomDepositInput) {
-          const nextAddonsTotal =
-            nextAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
-            customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
-          const nextBase = Math.max(0, newTotal - nextAddonsTotal);
-          setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
-        }
-      }
     }
     setSelectedStandardAddons(nextAddons);
+    setTotalPriceOverride(null);
   };
 
   // Compile all add-on names for payload
@@ -518,11 +497,6 @@ export default function CustomOrderCreator({
   ];
 
   // Financial calculations
-  const totalNum = typeof totalPrice === 'number' ? totalPrice : 0;
-  const standardAddonsTotal = selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0);
-  const customAddonsTotal = customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
-  const allAddonsTotal = standardAddonsTotal + customAddonsTotal;
-  const basePackagePrice = Math.max(0, totalNum - allAddonsTotal);
   const calculatedDepositDefault = Math.round(basePackagePrice / 2) + allAddonsTotal;
 
   const depositNum =
@@ -619,12 +593,15 @@ export default function CustomOrderCreator({
     setName('');
     setEmail('');
     setPhone('');
-    setPackageTitle('Custom Photography Session');
-    setNotes('');
+    setCategory('portraits');
+    setSelectedTier('Signature');
+    setPackageTitle('Studio Portraits — Signature');
+    setBasePackagePrice(1000);
+    setTotalPriceOverride(null);
+    setNotes('Professional studio setup\n• Guided posing & creative direction\n• 10 edited · 5 retouched images\n• Private online gallery');
     setSelectedStandardAddons([]);
     setCustomAddons([]);
-    setTotalPrice(1500);
-    setCustomDepositAmount(750);
+    setCustomDepositAmount(500);
     setIsCustomDepositInput(false);
     setPaymentOption('deposit');
   };
