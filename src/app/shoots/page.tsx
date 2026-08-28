@@ -519,7 +519,7 @@ export default function ShootsPage() {
                           <MessageSquare className="w-3 h-3 text-foreground/70" />
                           {sendingEmailId === `${shoot.id}_deposit`
                             ? 'Generating...'
-                            : `Send 50% Deposit (GHS ${Math.round(shoot.total_price / 2).toLocaleString()})`}
+                            : `Send Initial Deposit (GHS ${depositPaid.toLocaleString()})`}
                         </button>
 
                         <button
@@ -750,31 +750,37 @@ export default function ShootsPage() {
 
       {/* Full Booking Details Modal (Non-Scrollable Compact Layout) */}
       <AnimatePresence>
-        {selectedBookingDetails && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-6"
-            onClick={() => setSelectedBookingDetails(null)}
-          >
-            <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
+        {selectedBookingDetails && (() => {
+          const modalFin = calculateBookingFinancials({
+            total_price: selectedBookingDetails.total_price || 0,
+            add_ons: selectedBookingDetails.add_ons || [],
+          });
 
+          return (
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 p-5 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground flex flex-col justify-between"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-6"
+              onClick={() => setSelectedBookingDetails(null)}
             >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-foreground/15 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <FileText className="w-4 h-4 text-foreground/70" />
-                  <div>
-                    <h3 className="text-sm sm:text-base font-serif font-semibold text-foreground leading-none">
-                      Booking Details &amp; Financial Receipt
-                    </h3>
+              <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 p-5 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground flex flex-col justify-between"
+              >
+                {/* Modal Header */}
+                <div className="flex items-center justify-between border-b border-foreground/15 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <FileText className="w-4 h-4 text-foreground/70" />
+                    <div>
+                      <h3 className="text-sm sm:text-base font-serif font-semibold text-foreground leading-none">
+                        Booking Details &amp; Financial Receipt
+                      </h3>
                     <p className="text-[9px] text-foreground/40 uppercase tracking-widest mt-0.5">
                       ID: {selectedBookingDetails.id}
                     </p>
@@ -956,7 +962,7 @@ export default function ShootsPage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                    {/* Send 50% Deposit Link */}
+                    {/* Send Initial Deposit Link (50% Base + 100% Add-ons) */}
                     <button
                       type="button"
                       disabled={sendingEmailId !== null}
@@ -965,10 +971,10 @@ export default function ShootsPage() {
                     >
                       <span className="flex items-center gap-1.5">
                         <MessageSquare className="w-3 h-3 text-foreground/70" />
-                        Send 50% Deposit
+                        Send Initial Deposit (50% Base + Add-ons)
                       </span>
                       <span className="font-semibold">
-                        GHS {Math.round(Number(selectedBookingDetails.total_price || 0) / 2).toLocaleString()}
+                        GHS {modalFin.depositPaid.toLocaleString()}
                       </span>
                     </button>
 
@@ -1042,7 +1048,8 @@ export default function ShootsPage() {
               </div>
             </motion.div>
           </motion.div>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </main>
   );

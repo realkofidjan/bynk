@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase';
 import { initializePaystackTransaction } from '@/lib/paystack';
 import { sendBalancePaymentEmail } from '@/lib/email';
-import { SLOT_LABELS } from '@/lib/booking-types';
+import { SLOT_LABELS, calculateBookingFinancials } from '@/lib/booking-types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,13 +25,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    // Calculate financial figures
+    // Calculate financial figures with exact rule: (50% base package + 100% add-ons)
+    const financials = calculateBookingFinancials({
+      total_price: Number(booking.total_price) || 0,
+      add_ons: booking.add_ons || [],
+    });
+
     const totalPrice = Number(booking.total_price) || 0;
-    const depositAmountGhs =
-      booking.deposit_amount && booking.deposit_amount > 0
-        ? booking.deposit_amount
-        : Math.round(totalPrice / 2);
-    const remainingBalanceGhs = Math.max(0, totalPrice - depositAmountGhs);
+    const initialDepositGhs = financials.depositPaid;
+    const remainingBalanceGhs = financials.remainingBalance;
 
     // Determine charge amount based on paymentType requested
     let chargeAmountGhs = 0;
@@ -41,11 +43,11 @@ export async function POST(request: NextRequest) {
       chargeAmountGhs = totalPrice;
       paymentTypeLabel = 'Full Payment (100%)';
     } else if (paymentType === 'deposit') {
-      chargeAmountGhs = depositAmountGhs;
-      paymentTypeLabel = '50% Deposit';
+      chargeAmountGhs = initialDepositGhs;
+      paymentTypeLabel = 'Initial Deposit (50% Base + 100% Add-ons)';
     } else {
       chargeAmountGhs = remainingBalanceGhs > 0 ? remainingBalanceGhs : totalPrice;
-      paymentTypeLabel = 'Remaining Balance';
+      paymentTypeLabel = 'Remaining Balance (50% Base)';
     }
 
     if (chargeAmountGhs <= 0) {

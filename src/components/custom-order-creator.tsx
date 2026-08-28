@@ -448,7 +448,12 @@ export default function CustomOrderCreator({
       const newTotal = totalPrice + priceNum;
       setTotalPrice(newTotal);
       if (!isCustomDepositInput) {
-        setCustomDepositAmount(Math.round(newTotal / 2));
+        const nextAddonsTotal =
+          selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
+          customAddons.reduce((sum, c) => sum + (c.price || 0), 0) +
+          priceNum;
+        const nextBase = Math.max(0, newTotal - nextAddonsTotal);
+        setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
       }
     }
   };
@@ -459,7 +464,13 @@ export default function CustomOrderCreator({
       const newTotal = Math.max(0, totalPrice - price);
       setTotalPrice(newTotal);
       if (!isCustomDepositInput) {
-        setCustomDepositAmount(Math.round(newTotal / 2));
+        const nextAddonsTotal = Math.max(
+          0,
+          selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
+            customAddons.filter((item) => item.id !== id).reduce((sum, c) => sum + (c.price || 0), 0)
+        );
+        const nextBase = Math.max(0, newTotal - nextAddonsTotal);
+        setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
       }
     }
   };
@@ -476,7 +487,11 @@ export default function CustomOrderCreator({
         const newTotal = Math.max(0, totalPrice - addonPrice);
         setTotalPrice(newTotal);
         if (!isCustomDepositInput) {
-          setCustomDepositAmount(Math.round(newTotal / 2));
+          const nextAddonsTotal =
+            nextAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
+            customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
+          const nextBase = Math.max(0, newTotal - nextAddonsTotal);
+          setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
         }
       }
     } else {
@@ -485,7 +500,11 @@ export default function CustomOrderCreator({
         const newTotal = totalPrice + addonPrice;
         setTotalPrice(newTotal);
         if (!isCustomDepositInput) {
-          setCustomDepositAmount(Math.round(newTotal / 2));
+          const nextAddonsTotal =
+            nextAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0) +
+            customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
+          const nextBase = Math.max(0, newTotal - nextAddonsTotal);
+          setCustomDepositAmount(Math.round(nextBase / 2) + nextAddonsTotal);
         }
       }
     }
@@ -500,14 +519,20 @@ export default function CustomOrderCreator({
 
   // Financial calculations
   const totalNum = typeof totalPrice === 'number' ? totalPrice : 0;
+  const standardAddonsTotal = selectedStandardAddons.reduce((sum, k) => sum + (ADDON_PRICES[k] || 0), 0);
+  const customAddonsTotal = customAddons.reduce((sum, c) => sum + (c.price || 0), 0);
+  const allAddonsTotal = standardAddonsTotal + customAddonsTotal;
+  const basePackagePrice = Math.max(0, totalNum - allAddonsTotal);
+  const calculatedDepositDefault = Math.round(basePackagePrice / 2) + allAddonsTotal;
+
   const depositNum =
     paymentOption === 'full'
       ? totalNum
       : paymentOption === 'paid_offline'
       ? totalNum
-      : typeof customDepositAmount === 'number'
+      : typeof customDepositAmount === 'number' && isCustomDepositInput
       ? customDepositAmount
-      : Math.round(totalNum / 2);
+      : calculatedDepositDefault;
 
   const remainingBalanceNum = Math.max(0, totalNum - depositNum);
 
