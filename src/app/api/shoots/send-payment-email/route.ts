@@ -6,7 +6,7 @@ import { SLOT_LABELS } from '@/lib/booking-types';
 
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId } = await request.json();
+    const { bookingId, paymentType = 'balance', sendEmail = false } = await request.json();
 
     if (!bookingId) {
       return NextResponse.json({ error: 'Missing bookingId' }, { status: 400 });
@@ -25,33 +25,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    // Calculate remaining balance (total_price - deposit_amount, defaulting deposit to 50% of total if not recorded)
-    const depositPaid =
+    // Calculate financial figures
+    const totalPrice = Number(booking.total_price) || 0;
+    const depositAmountGhs =
       booking.deposit_amount && booking.deposit_amount > 0
         ? booking.deposit_amount
-        : Math.round(booking.total_price / 2);
-    const remainingBalanceGhs = Math.max(0, booking.total_price - depositPaid);
+        : Math.round(totalPrice / 2);
+    const remainingBalanceGhs = Math.max(0, totalPrice - depositAmountGhs);
 
-    if (remainingBalanceGhs <= 0) {
-      return NextResponse.json({ error: 'This shoot has no remaining balance due' }, { status: 400 });
+    // Determine charge amount based on paymentType requested
+    let chargeAmountGhs = 0;
+    let paymentTypeLabel = '';
+
+    if (paymentType === 'full') {
+      chargeAmountGhs = totalPrice;
+      paymentTypeLabel = 'Full Payment (100%)';
+    } else if (paymentType === 'deposit') {
+      chargeAmountGhs = depositAmountGhs;
+      paymentTypeLabel = '50% Deposit';
+    } else {
+      chargeAmountGhs = remainingBalanceGhs > 0 ? remainingBalanceGhs : totalPrice;
+      paymentTypeLabel = 'Remaining Balance';
     }
 
-    const origin = request.headers.get('origin') || request.nextUrl.origin || 'https://bynk-gh.vercel.app';
+    if (chargeAmountGhs <= 0) {
+      return NextResponse.json({ error: 'Charge amount must be greater than zero' }, { status: 400 });
+    }
+
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
+    const proto = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+    const origin = `${proto}://${host}`;
     const callbackUrl = `${origin}/book?status=payment_complete&bookingId=${bookingId}`;
 
-    // Initialize Paystack transaction for the exact remaining balance
+    // Initialize Paystack transaction for the exact selected amount (with fee incurred by client)
     const paystackResult = await initializePaystackTransaction({
       email: booking.email,
       clientName: booking.name,
-      amountInGhs: booking.total_price,
-      exactAmountInGhs: remainingBalanceGhs,
-      bookingId: `${booking.id}_balance`,
+      amountInGhs: totalPrice,
+      exactAmountInGhs: chargeAmountGhs,
+      bookingId: `${booking.id}_${paymentType}`,
       callbackUrl,
       metadata: {
         booking_id: booking.id,
         category: booking.category,
         tier: booking.tier,
-        payment_type: 'remaining_balance',
+        payment_type: paymentType,
       },
     });
 
@@ -59,33 +77,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: paystackResult.error || 'Failed to generate Paystack link' }, { status: 500 });
     }
 
-    const [y, m, d] = booking.date.split('-').map(Number);
-    const formattedShootDate = new Date(y, m - 1, d).toDateString();
+    const [y, m, d] = (booking.date || '').split('-').map(Number);
+    const formattedShootDate = booking.date ? new Date(y, m - 1, d).toDateString() : '';
     const timeSlotLabel = booking.full_day
       ? 'Full Day'
       : SLOT_LABELS[booking.slot as keyof typeof SLOT_LABELS] || booking.slot;
 
-    // Send payment email to client
-    const emailResult = await sendBalancePaymentEmail({
-      toEmail: booking.email,
-      clientName: booking.name,
-      categoryLabel: booking.category,
-      tierName: booking.tier,
-      shootDate: formattedShootDate,
-      timeSlotLabel,
-      remainingBalanceGhs,
-      paystackAuthorizationUrl: paystackResult.authorizationUrl,
-    });
+    // Send payment email to client if requested
+    let emailSent = false;
+    let emailError: string | undefined;
 
-    if (!emailResult.success) {
-      return NextResponse.json({ error: emailResult.error || 'Failed to send email' }, { status: 500 });
+    if (sendEmail) {
+      const emailResult = await sendBalancePaymentEmail({
+        toEmail: booking.email,
+        clientName: booking.name,
+        categoryLabel: booking.category,
+        tierName: booking.tier,
+        shootDate: formattedShootDate,
+        timeSlotLabel,
+        remainingBalanceGhs: chargeAmountGhs,
+        paystackAuthorizationUrl: paystackResult.authorizationUrl,
+      });
+
+      emailSent = emailResult.success;
+      if (!emailResult.success) {
+        emailError = emailResult.error;
+      }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Balance payment email sent to ${booking.email}`,
+      message: `${paymentTypeLabel} link generated for ${booking.name}`,
       authorizationUrl: paystackResult.authorizationUrl,
-      simulated: emailResult.simulated,
+      chargeAmountGhs,
+      grossGhs: paystackResult.grossGhs,
+      feeGhs: paystackResult.feeGhs,
+      paymentType,
+      paymentTypeLabel,
+      booking,
+      emailSent,
+      emailError,
     });
   } catch (err: any) {
     console.error('Send payment email error:', err);

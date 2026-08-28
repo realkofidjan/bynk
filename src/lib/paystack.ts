@@ -4,6 +4,23 @@
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+/** Standard Paystack Ghana local transaction fee rate (1.95%) */
+export const PAYSTACK_FEE_PERCENT = 1.95;
+
+/**
+ * Calculate gross charge amount in pesewas so that the client incurs the Paystack fee,
+ * ensuring the photographer/merchant receives exactly 100% of the net GHS amount without deductions.
+ * Formula: Gross = Net / (1 - FeeRate)
+ */
+export function calculateGrossAmountInPesewas(netGhs: number, feePercent: number = PAYSTACK_FEE_PERCENT) {
+  const feeRate = feePercent / 100;
+  const grossGhsExact = netGhs / (1 - feeRate);
+  const grossPesewas = Math.ceil(grossGhsExact * 100);
+  const grossGhs = Math.round(grossPesewas) / 100;
+  const feeGhs = Math.round((grossGhs - netGhs) * 100) / 100;
+  return { grossGhs, grossPesewas, feeGhs };
+}
+
 export type InitializePaymentParams = {
   email: string;
   clientName?: string;
@@ -19,11 +36,15 @@ export type InitializePaymentResult = {
   success: boolean;
   authorizationUrl?: string;
   reference?: string;
+  grossGhs?: number;
+  netGhs?: number;
+  feeGhs?: number;
   error?: string;
 };
 
 /**
- * Initialize a Paystack transaction for deposit or remaining balance.
+ * Initialize a Paystack transaction for deposit, full payment, or remaining balance.
+ * Automatically adds the 1.95% transaction fee so clients incur the fee.
  */
 export async function initializePaystackTransaction({
   email,
@@ -39,11 +60,13 @@ export async function initializePaystackTransaction({
     return { success: false, error: 'PAYSTACK_SECRET_KEY is not configured' };
   }
 
-  // Calculate charge amount in GHS, then convert to pesewas (* 100)
-  const depositGhs = exactAmountInGhs !== undefined
+  // Calculate net amount in GHS
+  const netGhs = exactAmountInGhs !== undefined
     ? Math.round(exactAmountInGhs)
     : Math.round((amountInGhs * depositPercentage) / 100);
-  const amountInPesewas = depositGhs * 100;
+
+  // Compute gross amount in pesewas with Paystack processing fee incurred by client
+  const { grossGhs, grossPesewas, feeGhs } = calculateGrossAmountInPesewas(netGhs);
 
   const reference = `BYNK_${bookingId.slice(0, 8)}_${Date.now()}`;
 
@@ -57,6 +80,8 @@ export async function initializePaystackTransaction({
     ...(nameStr ? [{ display_name: 'Client Name', variable_name: 'client_name', value: nameStr }] : []),
     ...(metadata.category ? [{ display_name: 'Category', variable_name: 'category', value: String(metadata.category) }] : []),
     ...(metadata.tier ? [{ display_name: 'Package Tier', variable_name: 'tier', value: String(metadata.tier) }] : []),
+    { display_name: 'Net Amount', variable_name: 'net_amount', value: `GHS ${netGhs.toLocaleString()}` },
+    { display_name: 'Processing Fee (1.95%)', variable_name: 'processing_fee', value: `GHS ${feeGhs.toFixed(2)}` },
   ];
 
   try {
@@ -68,7 +93,7 @@ export async function initializePaystackTransaction({
       },
       body: JSON.stringify({
         email,
-        amount: amountInPesewas,
+        amount: grossPesewas,
         currency: 'GHS',
         reference,
         callback_url: callbackUrl,
@@ -78,7 +103,10 @@ export async function initializePaystackTransaction({
           booking_id: bookingId,
           client_name: nameStr,
           total_price_ghs: amountInGhs,
-          deposit_ghs: depositGhs,
+          net_charge_ghs: netGhs,
+          gross_charge_ghs: grossGhs,
+          processing_fee_ghs: feeGhs,
+          client_incurs_fee: true,
           custom_fields: customFields,
           ...metadata,
         },
@@ -96,6 +124,9 @@ export async function initializePaystackTransaction({
       success: true,
       authorizationUrl: data.data.authorization_url,
       reference,
+      grossGhs,
+      netGhs,
+      feeGhs,
     };
   } catch (err: any) {
     console.error('Paystack request exception:', err);

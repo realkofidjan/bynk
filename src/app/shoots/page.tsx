@@ -185,32 +185,35 @@ export default function ShootsPage() {
     setPage(1);
   };
 
-  const handleSendWhatsAppLink = async (shoot: Booking) => {
-    setSendingEmailId(shoot.id);
+  const handleSendWhatsAppLink = async (
+    shoot: Booking,
+    paymentType: 'full' | 'deposit' | 'balance' = 'balance'
+  ) => {
+    setSendingEmailId(`${shoot.id}_${paymentType}`);
     setEmailNotice(null);
 
     try {
       const res = await fetch('/api/shoots/send-payment-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: shoot.id }),
+        body: JSON.stringify({ bookingId: shoot.id, paymentType }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to send payment email');
+        throw new Error(data.error || 'Failed to generate payment link');
       }
 
-      const { depositPaid, remainingBalance } = calculateBookingFinancials({
-        total_price: shoot.total_price || 0,
-        add_ons: shoot.add_ons || [],
-      });
-
       const paystackUrl = data.authorizationUrl;
+      const chargeAmount = data.chargeAmountGhs || shoot.total_price;
 
       if (paystackUrl) {
-        const waText = `Hi ${shoot.name}, your remaining balance for your shoot on ${shoot.date} (${shoot.tier}) is GHS ${remainingBalance.toLocaleString()}.\n\nPlease complete your balance payment securely via Paystack using this link:\n${paystackUrl}\n\nThank you — BYNK Photography`;
+        let typeDesc = 'Remaining Balance';
+        if (paymentType === 'full') typeDesc = 'Full Payment (100%)';
+        else if (paymentType === 'deposit') typeDesc = '50% Deposit';
+
+        const waText = `Hi ${shoot.name}, here is your ${typeDesc} link for your photography shoot on ${shoot.date} (${shoot.tier}).\n\nAmount Due: GHS ${chargeAmount.toLocaleString()}\nPay securely via Paystack:\n${paystackUrl}\n\nThank you — BYNK Photography`;
 
         window.open(
           `https://wa.me/${shoot.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waText)}`,
@@ -219,7 +222,7 @@ export default function ShootsPage() {
 
         setEmailNotice({
           id: shoot.id,
-          msg: `Paystack balance link generated & opened in WhatsApp!`,
+          msg: `Paystack ${typeDesc} link (GHS ${chargeAmount.toLocaleString()}) generated & opened in WhatsApp!`,
           type: 'success',
           url: paystackUrl,
         });
@@ -231,8 +234,8 @@ export default function ShootsPage() {
         });
       }
     } catch (err: any) {
-      console.error('WhatsApp balance link error:', err);
-      setEmailNotice({ id: shoot.id, msg: 'Error generating payment link', type: 'error' });
+      console.error('WhatsApp payment link error:', err);
+      setEmailNotice({ id: shoot.id, msg: err.message || 'Error generating payment link', type: 'error' });
     } finally {
       setSendingEmailId(null);
     }
@@ -495,7 +498,7 @@ export default function ShootsPage() {
                     </div>
                   </div>
 
-                  {/* Bottom Actions Row: ONLY View Booking Details and Send Balance Link */}
+                  {/* Bottom Actions Row: View Booking Details and Send Payment Links */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-foreground/10">
                     <button
                       onClick={() => setSelectedBookingDetails(shoot)}
@@ -505,17 +508,32 @@ export default function ShootsPage() {
                       View Booking Details
                     </button>
 
-                    {activeTab === 'upcoming' && shoot.status !== 'cancelled' && remainingBalance > 0 && (
-                      <button
-                        onClick={() => handleSendWhatsAppLink(shoot)}
-                        disabled={sendingEmailId === shoot.id}
-                        className="px-4 py-2 bg-foreground text-background text-[10px] uppercase tracking-[0.2em] font-semibold hover:bg-foreground/90 transition-all flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        {sendingEmailId === shoot.id
-                          ? 'Generating Link...'
-                          : `Send Balance Payment Link via WhatsApp`}
-                      </button>
+                    {activeTab === 'upcoming' && shoot.status !== 'cancelled' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSendWhatsAppLink(shoot, 'deposit')}
+                          disabled={sendingEmailId !== null}
+                          className="px-3 py-1.5 bg-foreground/[0.05] hover:bg-foreground/[0.1] text-foreground border border-foreground/25 text-[9px] uppercase tracking-[0.15em] font-semibold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <MessageSquare className="w-3 h-3 text-foreground/70" />
+                          {sendingEmailId === `${shoot.id}_deposit`
+                            ? 'Generating...'
+                            : `Send 50% Deposit (GHS ${Math.round(shoot.total_price / 2).toLocaleString()})`}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSendWhatsAppLink(shoot, 'full')}
+                          disabled={sendingEmailId !== null}
+                          className="px-3.5 py-1.5 bg-foreground text-background text-[9px] uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          {sendingEmailId === `${shoot.id}_full`
+                            ? 'Generating...'
+                            : `Send Full Link (GHS ${shoot.total_price.toLocaleString()})`}
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -923,6 +941,55 @@ export default function ShootsPage() {
                   </div>
                 );
               })()}
+
+              {/* Payment Link Dispatch via WhatsApp (Full or Half/Deposit) */}
+              {selectedBookingDetails.status !== 'cancelled' && (
+                <div className="space-y-2 bg-foreground/[0.02] border border-foreground/15 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/60 font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-emerald-400" />
+                      Client Payment Links (WhatsApp Dispatch)
+                    </span>
+                    <span className="text-[8px] text-foreground/40 font-mono">
+                      Paystack 1.95% fee incurred by client
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                    {/* Send 50% Deposit Link */}
+                    <button
+                      type="button"
+                      disabled={sendingEmailId !== null}
+                      onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'deposit')}
+                      className="w-full py-2 px-3 bg-foreground/[0.05] hover:bg-foreground/[0.1] text-foreground border border-foreground/25 font-mono text-[9px] uppercase tracking-[0.15em] font-semibold transition-all flex items-center justify-between gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <MessageSquare className="w-3 h-3 text-foreground/70" />
+                        Send 50% Deposit
+                      </span>
+                      <span className="font-semibold">
+                        GHS {Math.round(Number(selectedBookingDetails.total_price || 0) / 2).toLocaleString()}
+                      </span>
+                    </button>
+
+                    {/* Send Full Payment Link */}
+                    <button
+                      type="button"
+                      disabled={sendingEmailId !== null}
+                      onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'full')}
+                      className="w-full py-2 px-3 bg-foreground text-background font-mono text-[9px] uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-between gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <MessageSquare className="w-3 h-3" />
+                        Send Full Payment
+                      </span>
+                      <span className="font-semibold">
+                        GHS {Number(selectedBookingDetails.total_price || 0).toLocaleString()}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Modal Footer with Actions */}
               <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-foreground/10 text-xs">
