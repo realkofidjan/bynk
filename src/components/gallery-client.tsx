@@ -213,7 +213,7 @@ export default function GalleryClient() {
 
                     {/* Bottom Download Icon Button */}
                     <a
-                      href={image.src}
+                      href={`/api/download?code=${encodeURIComponent(shoot.passcode)}&file=${encodeURIComponent(image.filename)}`}
                       download={image.filename}
                       onClick={(e) => e.stopPropagation()}
                       className="absolute bottom-2 right-2 z-10 flex items-center justify-center w-7.5 h-7.5 rounded-full bg-black/80 backdrop-blur-md text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 ease-out hover:bg-black shadow-md cursor-pointer"
@@ -254,7 +254,7 @@ export default function GalleryClient() {
 
                     <div className="flex items-center gap-3">
                       <a
-                        href={shoot.images[activeImageIndex].src}
+                        href={`/api/download?code=${encodeURIComponent(shoot.passcode)}&file=${encodeURIComponent(shoot.images[activeImageIndex].filename)}`}
                         download={shoot.images[activeImageIndex].filename}
                         className="px-4 py-2 bg-white text-black font-mono text-xs uppercase tracking-wider font-semibold flex items-center gap-2 hover:bg-white/90 transition-colors cursor-pointer shadow-xl"
                       >
