@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getShoots } from '@/lib/shoots';
+import { getShootsAsync, syncShootsManifest } from '@/lib/shoots';
 
 const execAsync = promisify(exec);
 
@@ -20,29 +20,32 @@ export const maxDuration = 300;
 
 export async function GET() {
   try {
-    // 1. Fetch Client Shoot Galleries
-    const clientGalleries = getShoots().map((shoot) => {
+    // 1. Fetch Client Shoot Galleries (supports live serverless and local)
+    const shoots = await getShootsAsync();
+    const clientGalleries = shoots.map((shoot) => {
       const folderPath = path.join(process.cwd(), 'public', 'shoots', shoot.slug);
       let totalSizeBytes = 0;
       let lastModified = new Date().toISOString();
 
       if (fs.existsSync(folderPath)) {
-        const stats = fs.statSync(folderPath);
-        lastModified = stats.mtime.toISOString();
-        const files = fs.readdirSync(folderPath);
-        for (const file of files) {
-          try {
-            const fileStat = fs.statSync(path.join(folderPath, file));
-            totalSizeBytes += fileStat.size;
-          } catch {}
-        }
+        try {
+          const stats = fs.statSync(folderPath);
+          lastModified = stats.mtime.toISOString();
+          const files = fs.readdirSync(folderPath);
+          for (const file of files) {
+            try {
+              const fileStat = fs.statSync(path.join(folderPath, file));
+              totalSizeBytes += fileStat.size;
+            } catch {}
+          }
+        } catch {}
       }
 
       return {
         ...shoot,
         imageCount: shoot.images.length,
         totalSizeBytes,
-        totalSizeMb: (totalSizeBytes / (1024 * 1024)).toFixed(2),
+        totalSizeMb: totalSizeBytes > 0 ? (totalSizeBytes / (1024 * 1024)).toFixed(2) : (shoot.images.length * 1.1).toFixed(2),
         lastModified,
       };
     });
@@ -215,11 +218,14 @@ export async function POST(request: NextRequest) {
       const infoContent = `${passcode}\n${clientTitle}\n${effectiveCover}\n`;
       fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
 
+      // Update manifest.json for live GitHub CDN serving
+      syncShootsManifest();
+
       // Commit and Push to GitHub repository
       const commitMessage = `feat(gallery): add/update client gallery "${clientTitle}" (${slug}) with passcode [${passcode}]`;
 
       try {
-        await execAsync(`git add -A "public/shoots/${slug}"`, { cwd: process.cwd() });
+        await execAsync(`git add -A "public/shoots/${slug}" "public/shoots/manifest.json"`, { cwd: process.cwd() });
         await execAsync(`git commit -m "${commitMessage}"`, { cwd: process.cwd() });
         await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
       } catch (gitErr: any) {
@@ -260,8 +266,11 @@ export async function POST(request: NextRequest) {
         fs.rmSync(shootDir, { recursive: true, force: true });
       }
 
+      // Update manifest.json for live serving
+      syncShootsManifest();
+
       try {
-        await execAsync(`git add -A "public/shoots/${slug}"`, { cwd: process.cwd() });
+        await execAsync(`git add -A "public/shoots/${slug}" "public/shoots/manifest.json"`, { cwd: process.cwd() });
         await execAsync(`git commit -m "feat(gallery): remove client gallery '${slug}'"`, { cwd: process.cwd() });
         await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
       } catch (gitErr: any) {
