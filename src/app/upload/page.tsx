@@ -175,27 +175,29 @@ export default function UploadPage() {
       const initData = await initRes.json();
       const actualSlug = initData.slug || targetSlug;
 
-      // Step 2: Upload each photo individually to prevent FormData payload exhaustion
+      // Step 2: Stream each photo as raw binary directly to server
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         setUploadProgress({ current: i + 1, total: selectedFiles.length, filename: file.name });
         setStatusMessage({
           type: 'info',
-          text: `Uploading photo ${i + 1} of ${selectedFiles.length} (${file.name})...`,
+          text: `Uploading photo ${i + 1} of ${selectedFiles.length}: ${file.name}...`,
         });
-
-        const fileFormData = new FormData();
-        fileFormData.append('uploadType', 'upload_gallery_file');
-        fileFormData.append('slug', actualSlug);
-        fileFormData.append('file', file);
 
         const fileRes = await fetch('/api/upload', {
           method: 'POST',
-          body: fileFormData,
+          headers: {
+            'x-upload-type': 'raw_photo',
+            'x-slug': actualSlug,
+            'x-filename': encodeURIComponent(file.name),
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
         });
 
         if (!fileRes.ok) {
-          console.warn(`Warning: photo ${file.name} upload encountered issue.`);
+          const errJson = await fileRes.json().catch(() => ({}));
+          throw new Error(`Failed to upload ${file.name}: ${errJson.error || errJson.details || fileRes.statusText}`);
         }
       }
 
