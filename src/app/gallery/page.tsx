@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function GalleryPage() {
   return (
-    <main className="h-screen bg-background text-foreground flex flex-col items-center justify-center p-8 sm:p-24 relative overflow-hidden">
+    <main className="min-h-screen bg-background text-foreground flex flex-col items-center pt-24 pb-16 px-4 sm:px-8 lg:px-12 relative overflow-y-auto font-sans">
       <GalleryClient />
     </main>
   );
