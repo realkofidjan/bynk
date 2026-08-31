@@ -50,31 +50,39 @@ export async function GET() {
       };
     });
 
-    // 2. Fetch General Uploads
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    // 2. Fetch General Uploads (Safe on serverless read-only filesystems)
+    let generalUploads: any[] = [];
+    try {
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+      if (fs.existsSync(uploadDir)) {
+        const files = fs.readdirSync(uploadDir).filter((file) => {
+          const ext = path.extname(file).toLowerCase();
+          return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.svg'].includes(ext);
+        });
 
-    const files = fs.readdirSync(uploadDir).filter((file) => {
-      const ext = path.extname(file).toLowerCase();
-      return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.svg'].includes(ext);
-    });
+        generalUploads = files
+          .map((filename) => {
+            let sizeBytes = 0;
+            let uploadedAt = new Date().toISOString();
+            try {
+              const stats = fs.statSync(path.join(uploadDir, filename));
+              sizeBytes = stats.size;
+              uploadedAt = stats.mtime.toISOString();
+            } catch {}
 
-    const generalUploads = files
-      .map((filename) => {
-        const stats = fs.statSync(path.join(uploadDir, filename));
-        return {
-          filename,
-          sizeBytes: stats.size,
-          sizeMb: (stats.size / (1024 * 1024)).toFixed(2),
-          uploadedAt: stats.mtime.toISOString(),
-          localUrl: `/uploads/${filename}`,
-          githubRawUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/uploads/${filename}`,
-          githubBlobUrl: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/public/uploads/${filename}`,
-        };
-      })
-      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+            return {
+              filename,
+              sizeBytes,
+              sizeMb: (sizeBytes / (1024 * 1024)).toFixed(2),
+              uploadedAt,
+              localUrl: `/uploads/${filename}`,
+              githubRawUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/uploads/${filename}`,
+              githubBlobUrl: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/public/uploads/${filename}`,
+            };
+          })
+          .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+      }
+    } catch {}
 
     let currentCommit = 'main';
     try {

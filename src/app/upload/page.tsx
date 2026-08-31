@@ -179,19 +179,47 @@ export default function UploadPage() {
     try {
       setLoading(true);
       const [uploadRes, shootsRes] = await Promise.all([
-        fetch('/api/upload'),
-        fetch('/api/shoots?filter=all&limit=200'),
+        fetch('/api/upload').catch(() => null),
+        fetch('/api/shoots?filter=all&limit=200').catch(() => null),
       ]);
 
-      if (uploadRes.ok) {
+      let galleriesFound = false;
+
+      if (uploadRes && uploadRes.ok) {
         const data = await uploadRes.json();
-        if (data.success) {
-          setClientGalleries(data.clientGalleries || []);
+        if (data.success && Array.isArray(data.clientGalleries)) {
+          setClientGalleries(data.clientGalleries);
           setGeneralUploads(data.generalUploads || []);
+          if (data.clientGalleries.length > 0) {
+            galleriesFound = true;
+          }
         }
       }
 
-      if (shootsRes.ok) {
+      // If /api/upload was empty or failed on serverless, load directly from GitHub Raw manifest CDN
+      if (!galleriesFound) {
+        try {
+          const cdnRes = await fetch(
+            `https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/manifest.json?t=${Date.now()}`
+          );
+          if (cdnRes.ok) {
+            const manifest = await cdnRes.json();
+            if (Array.isArray(manifest) && manifest.length > 0) {
+              const formatted = manifest.map((s: any) => ({
+                ...s,
+                imageCount: s.images?.length || 0,
+                totalSizeMb: ((s.images?.length || 0) * 1.1).toFixed(2),
+                lastModified: new Date().toISOString(),
+              }));
+              setClientGalleries(formatted);
+            }
+          }
+        } catch (cdnErr) {
+          console.warn('CDN manifest fetch error:', cdnErr);
+        }
+      }
+
+      if (shootsRes && shootsRes.ok) {
         const shootsData = await shootsRes.json();
         setPastBookings(shootsData.shoots || []);
       }
