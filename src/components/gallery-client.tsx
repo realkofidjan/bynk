@@ -26,13 +26,31 @@ export default function GalleryClient() {
       setError('');
 
       try {
-        const result = await verifyPasscode(value);
-        if (result.success && result.shoot) {
-          setShoot(result.shoot);
-        } else {
-          setError(result.error || 'Invalid passcode. Please check and try again.');
+        // Method 1: Next.js Server Action
+        let result: any = null;
+        try {
+          result = await verifyPasscode(value);
+        } catch (serverActionErr) {
+          console.warn('Server Action verify failed, falling back to API:', serverActionErr);
         }
-      } catch {
+
+        if (result?.success && result?.shoot) {
+          setShoot(result.shoot);
+          return;
+        }
+
+        // Method 2: Direct REST API Fallback
+        const apiRes = await fetch(`/api/gallery/verify?code=${encodeURIComponent(value)}`);
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          if (apiData.success && apiData.shoot) {
+            setShoot(apiData.shoot);
+            return;
+          }
+        }
+
+        setError('Invalid passcode. Please check and try again.');
+      } catch (err: any) {
         setError('An error occurred while verifying passcode. Please try again.');
       } finally {
         setLoading(false);
