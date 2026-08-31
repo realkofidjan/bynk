@@ -18,7 +18,7 @@ export default function Navigation() {
       {/* Top Left Navigation Links */}
       <nav
         id="main-navigation"
-        className="fixed top-5 left-5 sm:top-8 sm:left-8 z-30 pointer-events-auto flex flex-row items-center gap-4 sm:gap-6"
+        className="fixed top-5 left-5 sm:top-8 sm:left-8 z-[200] pointer-events-auto flex flex-row items-center gap-4 sm:gap-6"
       >
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -54,7 +54,7 @@ export default function Navigation() {
       </nav>
 
       {/* Top Right Hero Tagline — Global across all pages */}
-      <div className="fixed top-8 right-8 z-40 pointer-events-none text-right">
+      <div className="fixed top-8 right-8 z-[200] pointer-events-none text-right">
         <h1
           id="hero-heading"
           className="font-serif text-xs sm:text-sm md:text-base lg:text-lg tracking-tight text-foreground leading-none whitespace-nowrap"

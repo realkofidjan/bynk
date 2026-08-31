@@ -217,7 +217,7 @@ export default function GalleryClient() {
             <AnimatePresence>
               {activeImageIndex !== null && shoot.images[activeImageIndex] && (
                 <div
-                  className="fixed inset-0 z-[100] bg-neutral-950/98 backdrop-blur-2xl flex flex-col justify-between p-4 sm:p-6 lg:p-8 overscroll-contain select-none"
+                  className="fixed inset-0 z-[100] bg-neutral-950/98 backdrop-blur-2xl flex flex-col justify-between pt-20 sm:pt-24 pb-6 px-4 sm:px-8 lg:px-12 overscroll-contain select-none"
                   onClick={() => setActiveImageIndex(null)}
                 >
                   {/* Dedicated Top Control Bar */}
