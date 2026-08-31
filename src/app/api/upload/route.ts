@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getShoots } from '@/lib/shoots';
 
 const execAsync = promisify(exec);
 
@@ -11,11 +12,37 @@ const REPO_NAME = 'bynk';
 const REPO_BRANCH = 'main';
 
 /* ────────────────────────────────────────
-   GET /api/upload — List all uploaded images
+   GET /api/upload — List client galleries and uploaded assets
    ──────────────────────────────────────── */
 
 export async function GET() {
   try {
+    // 1. Fetch Client Shoot Galleries
+    const clientGalleries = getShoots().map((shoot) => {
+      const folderPath = path.join(process.cwd(), 'public', 'shoots', shoot.slug);
+      let totalSizeBytes = 0;
+      let lastModified = new Date().toISOString();
+
+      if (fs.existsSync(folderPath)) {
+        const stats = fs.statSync(folderPath);
+        lastModified = stats.mtime.toISOString();
+        const files = fs.readdirSync(folderPath);
+        for (const file of files) {
+          const fileStat = fs.statSync(path.join(folderPath, file));
+          totalSizeBytes += fileStat.size;
+        }
+      }
+
+      return {
+        ...shoot,
+        imageCount: shoot.images.length,
+        totalSizeBytes,
+        totalSizeMb: (totalSizeBytes / (1024 * 1024)).toFixed(2),
+        lastModified,
+      };
+    });
+
+    // 2. Fetch General Uploads
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -26,39 +53,162 @@ export async function GET() {
       return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.svg'].includes(ext);
     });
 
-    const fileDetails = files.map((filename) => {
-      const stats = fs.statSync(path.join(uploadDir, filename));
-      return {
-        filename,
-        sizeBytes: stats.size,
-        sizeMb: (stats.size / (1024 * 1024)).toFixed(2),
-        uploadedAt: stats.mtime.toISOString(),
-        localUrl: `/uploads/${filename}`,
-        githubRawUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/uploads/${filename}`,
-        githubBlobUrl: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/public/uploads/${filename}`,
-      };
-    }).sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    const generalUploads = files
+      .map((filename) => {
+        const stats = fs.statSync(path.join(uploadDir, filename));
+        return {
+          filename,
+          sizeBytes: stats.size,
+          sizeMb: (stats.size / (1024 * 1024)).toFixed(2),
+          uploadedAt: stats.mtime.toISOString(),
+          localUrl: `/uploads/${filename}`,
+          githubRawUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/uploads/${filename}`,
+          githubBlobUrl: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/public/uploads/${filename}`,
+        };
+      })
+      .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+    // 3. Check git branch
+    let currentCommit = '';
+    try {
+      const { stdout } = await execAsync('git rev-parse --short HEAD', { cwd: process.cwd() });
+      currentCommit = stdout.trim();
+    } catch {
+      currentCommit = 'main';
+    }
 
     return NextResponse.json({
       success: true,
-      files: fileDetails,
+      clientGalleries,
+      generalUploads,
+      currentCommit,
+      repo: `${REPO_OWNER}/${REPO_NAME}`,
+      branch: REPO_BRANCH,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to list uploads:', err);
-    return NextResponse.json({ error: 'Failed to list uploaded files' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to list uploaded files', details: err?.message }, { status: 500 });
   }
 }
 
 /* ────────────────────────────────────────
-   POST /api/upload — Upload file directly to GitHub & public/uploads/
+   POST /api/upload — Upload Gallery or Files & Sync to GitHub
    ──────────────────────────────────────── */
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const customGithubToken = (formData.get('githubToken') as string) || process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+    const uploadType = (formData.get('uploadType') as string) || 'general';
+    const customGithubToken =
+      (formData.get('githubToken') as string) || process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 
+    /* ════════════════════════════════════════
+       MODE 1: CLIENT SHOOT GALLERY UPLOAD
+       ════════════════════════════════════════ */
+    if (uploadType === 'client_gallery') {
+      const clientTitle = (formData.get('clientTitle') as string || '').trim();
+      let slug = (formData.get('slug') as string || '').trim().toLowerCase();
+      let passcode = (formData.get('passcode') as string || '').trim();
+      const coverPhotoName = (formData.get('coverPhotoName') as string || '').trim();
+      const files = formData.getAll('files') as File[];
+
+      if (!clientTitle) {
+        return NextResponse.json({ error: 'Client Shoot Title is required' }, { status: 400 });
+      }
+
+      if (!passcode) {
+        // Auto-generate 6-digit passcode if not provided
+        passcode = Math.floor(100000 + Math.random() * 900000).toString();
+      }
+
+      if (!slug) {
+        slug = clientTitle
+          .replace(/[^a-zA-Z0-9\s-_]/g, '')
+          .trim()
+          .replace(/\s+/g, '_');
+      } else {
+        slug = slug.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
+      }
+
+      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
+      if (!fs.existsSync(shootDir)) {
+        fs.mkdirSync(shootDir, { recursive: true });
+      }
+
+      const savedFiles: string[] = [];
+
+      // Save each uploaded file
+      for (const file of files) {
+        if (!file || typeof file === 'string' || !file.name) continue;
+        const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const filePath = path.join(shootDir, sanitizedFileName);
+        const arrayBuffer = await file.arrayBuffer();
+        fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+        savedFiles.push(sanitizedFileName);
+      }
+
+      // Determine cover photo
+      const effectiveCover = coverPhotoName || (savedFiles.length > 0 ? savedFiles[0] : '');
+
+      // Create/update info.txt
+      const infoContent = `${passcode}\n${clientTitle}\n${effectiveCover}\n`;
+      fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
+
+      // Git Commit and Push to GitHub
+      let pushedToGithub = false;
+      let commitMessage = `feat(gallery): add/update client gallery "${clientTitle}" (${slug}) with passcode [${passcode}]`;
+
+      try {
+        await execAsync(`git add "public/shoots/${slug}"`, { cwd: process.cwd() });
+        await execAsync(`git commit -m "${commitMessage}"`, { cwd: process.cwd() });
+        await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
+        pushedToGithub = true;
+      } catch (gitErr: any) {
+        console.warn('Git CLI push notice:', gitErr?.message || gitErr);
+      }
+
+      return NextResponse.json({
+        success: true,
+        gallery: {
+          slug,
+          clientInfo: clientTitle,
+          passcode,
+          coverPhoto: effectiveCover ? `/shoots/${slug}/${effectiveCover}` : '',
+          imageCount: savedFiles.length,
+          pushedToGithub,
+        },
+      });
+    }
+
+    /* ════════════════════════════════════════
+       MODE 2: DELETE CLIENT GALLERY
+       ════════════════════════════════════════ */
+    if (uploadType === 'delete_gallery') {
+      const slug = (formData.get('slug') as string || '').trim();
+      if (!slug) {
+        return NextResponse.json({ error: 'Gallery slug required for deletion' }, { status: 400 });
+      }
+
+      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
+      if (fs.existsSync(shootDir)) {
+        fs.rmSync(shootDir, { recursive: true, force: true });
+
+        try {
+          await execAsync(`git add -A "public/shoots/${slug}"`, { cwd: process.cwd() });
+          await execAsync(`git commit -m "chore(gallery): remove client gallery ${slug}"`, { cwd: process.cwd() });
+          await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
+        } catch (gitErr: any) {
+          console.warn('Git deletion push warning:', gitErr?.message || gitErr);
+        }
+      }
+
+      return NextResponse.json({ success: true, message: `Gallery ${slug} deleted successfully.` });
+    }
+
+    /* ════════════════════════════════════════
+       MODE 3: GENERAL ASSET UPLOADS
+       ════════════════════════════════════════ */
+    const file = formData.get('file') as File | null;
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
@@ -72,7 +222,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitize filename
     const originalName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_').toLowerCase();
     const timestamp = Date.now();
     const filename = `${timestamp}_${originalName}`;
@@ -83,8 +232,6 @@ export async function POST(request: NextRequest) {
     }
 
     const filePath = path.join(uploadDir, filename);
-
-    // Convert file to Buffer & save locally
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     fs.writeFileSync(filePath, buffer);
@@ -95,53 +242,15 @@ export async function POST(request: NextRequest) {
     const githubBlobUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/${relativePath}`;
 
     let pushedToGithub = false;
-    let githubCommitSha = '';
 
-    // Method A: Direct GitHub REST API Commit if GITHUB_TOKEN is available
-    if (customGithubToken) {
-      try {
-        const base64Content = buffer.toString('base64');
-        const apiResponse = await fetch(
-          `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${relativePath}`,
-          {
-            method: 'PUT',
-            headers: {
-              Authorization: `token ${customGithubToken}`,
-              'Content-Type': 'application/json',
-              Accept: 'application/vnd.github.v3+json',
-              'User-Agent': 'BYNK-Photo-Portfolio-Uploader',
-            },
-            body: JSON.stringify({
-              message: `upload: Add ${filename} via BYNK URL upload portal`,
-              content: base64Content,
-              branch: REPO_BRANCH,
-            }),
-          }
-        );
-
-        if (apiResponse.ok) {
-          const resData = await apiResponse.json();
-          pushedToGithub = true;
-          githubCommitSha = resData.commit?.sha || '';
-        } else {
-          const errData = await apiResponse.json();
-          console.warn('GitHub API upload warning:', errData.message);
-        }
-      } catch (ghErr) {
-        console.warn('GitHub API upload error:', ghErr);
-      }
-    }
-
-    // Method B: Local Git CLI Push fallback if in server/local environment
-    if (!pushedToGithub) {
-      try {
-        await execAsync(`git add "${filePath}"`, { cwd: process.cwd() });
-        await execAsync(`git commit -m "upload: Add ${filename} via BYNK upload portal"`, { cwd: process.cwd() });
-        await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
-        pushedToGithub = true;
-      } catch (gitErr) {
-        console.info('Git CLI push skipped or not in git environment:', gitErr instanceof Error ? gitErr.message : gitErr);
-      }
+    // Git Push
+    try {
+      await execAsync(`git add "${filePath}"`, { cwd: process.cwd() });
+      await execAsync(`git commit -m "upload: add ${filename} via BYNK upload portal"`, { cwd: process.cwd() });
+      await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
+      pushedToGithub = true;
+    } catch (gitErr: any) {
+      console.warn('Git push notice:', gitErr?.message || gitErr);
     }
 
     return NextResponse.json({
@@ -153,10 +262,10 @@ export async function POST(request: NextRequest) {
       githubRawUrl,
       githubBlobUrl,
       pushedToGithub,
-      commitSha: githubCommitSha,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Upload POST error:', err);
-    return NextResponse.json({ error: 'Internal server upload error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server upload error', details: err?.message }, { status: 500 });
   }
 }
+
