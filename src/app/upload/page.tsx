@@ -483,18 +483,18 @@ export default function UploadPage() {
     // Try to auto-match client from past shoots
     const match = pastBookings.find(
       (b) =>
-        gallery.clientInfo.toLowerCase().includes(b.name.toLowerCase()) ||
-        b.name.toLowerCase().includes(gallery.clientInfo.toLowerCase()) ||
-        gallery.slug.toLowerCase().includes(b.name.toLowerCase().replace(/\s+/g, '_'))
+        (b?.name && gallery.clientInfo.toLowerCase().includes(b.name.toLowerCase())) ||
+        (b?.name && b.name.toLowerCase().includes(gallery.clientInfo.toLowerCase())) ||
+        (b?.name && gallery.slug.toLowerCase().includes(b.name.toLowerCase().replace(/\s+/g, '_')))
     );
 
     if (match) {
       setSelectedBooking(match);
-      setRecipientName(match.name);
-      setRecipientPhone(match.phone);
+      setRecipientName(match.name || '');
+      setRecipientPhone(match.phone || '');
     } else {
       setSelectedBooking(null);
-      setRecipientName(gallery.clientInfo);
+      setRecipientName(gallery.clientInfo || '');
       setRecipientPhone('');
     }
   };
@@ -533,12 +533,14 @@ export default function UploadPage() {
     a.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const searchLower = (bookingSearch || '').toLowerCase().trim();
   const filteredBookings = pastBookings.filter(
     (b) =>
-      b.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-      b.phone.includes(bookingSearch) ||
-      b.email.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-      b.package_name.toLowerCase().includes(bookingSearch.toLowerCase())
+      !searchLower ||
+      (b.name || '').toLowerCase().includes(searchLower) ||
+      (b.phone || '').includes(searchLower) ||
+      (b.email || '').toLowerCase().includes(searchLower) ||
+      (b.package_name || '').toLowerCase().includes(searchLower)
   );
 
   return (
@@ -921,9 +923,11 @@ export default function UploadPage() {
                         onChange={(e) => {
                           const chosen = pastBookings.find((b) => b.id === e.target.value);
                           if (chosen) {
-                            setClientTitle(`${chosen.name} - ${chosen.package_name}`);
+                            const name = chosen.name || 'Client';
+                            const pkg = chosen.package_name || 'Shoot';
+                            setClientTitle(`${name} - ${pkg}`);
                             setCustomSlug(
-                              `${chosen.name}_${chosen.package_name}`
+                              `${name}_${pkg}`
                                 .toLowerCase()
                                 .replace(/[^a-zA-Z0-9\s-_]/g, '')
                                 .trim()
@@ -936,7 +940,7 @@ export default function UploadPage() {
                         <option value="">-- Or choose a client from past bookings --</option>
                         {pastBookings.map((b) => (
                           <option key={b.id} value={b.id}>
-                            {b.name} ({b.phone}) — {b.package_name} ({b.date})
+                            {b.name || 'Client'} ({b.phone || 'No phone'}) — {b.package_name || 'Shoot'} ({b.date || ''})
                           </option>
                         ))}
                       </select>
@@ -1243,16 +1247,18 @@ export default function UploadPage() {
                                 <div className="space-y-0.5">
                                   <p className="font-semibold text-foreground flex items-center gap-2">
                                     <User className="w-3 h-3 text-foreground/50" />
-                                    {b.name}
+                                    {b.name || 'Client'}
                                   </p>
                                   <p className="text-[10px] text-foreground/50 flex items-center gap-3">
                                     <span className="flex items-center gap-1">
-                                      <Phone className="w-2.5 h-2.5" /> {b.phone}
+                                      <Phone className="w-2.5 h-2.5" /> {b.phone || ''}
                                     </span>
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="w-2.5 h-2.5" /> {b.date}
-                                    </span>
-                                    <span>{b.package_name}</span>
+                                    {b.date && (
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="w-2.5 h-2.5" /> {b.date}
+                                      </span>
+                                    )}
+                                    {b.package_name && <span>{b.package_name}</span>}
                                   </p>
                                 </div>
                                 <span className="text-[10px] uppercase font-bold text-emerald-400">
