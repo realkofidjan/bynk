@@ -217,39 +217,46 @@ export default function GalleryClient() {
             <AnimatePresence>
               {activeImageIndex !== null && shoot.images[activeImageIndex] && (
                 <div
-                  className="fixed inset-0 z-60 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+                  className="fixed inset-0 z-[100] bg-neutral-950/98 backdrop-blur-2xl flex flex-col justify-between p-4 sm:p-6 lg:p-8 overscroll-contain select-none"
                   onClick={() => setActiveImageIndex(null)}
                 >
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96 }}
-                    className="relative max-w-6xl max-h-[92vh] w-full h-full flex flex-col items-center justify-center"
+                  {/* Dedicated Top Control Bar */}
+                  <div
+                    className="w-full flex items-center justify-between z-20 shrink-0 pb-3 border-b border-white/10"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {/* Top Control Bar */}
-                    <div className="absolute top-2 inset-x-2 z-20 flex items-center justify-between pointer-events-auto">
-                      <span className="px-3 py-1.5 bg-black/75 backdrop-blur-md text-white/90 text-xs font-mono border border-white/10">
-                        {activeImageIndex + 1} / {shoot.images.length} · {shoot.images[activeImageIndex].filename}
+                    <div className="flex items-center gap-3">
+                      <span className="px-3 py-1.5 bg-white/10 backdrop-blur-md text-white font-mono text-xs tracking-wider border border-white/10">
+                        {activeImageIndex + 1} / {shoot.images.length}
                       </span>
-
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={shoot.images[activeImageIndex].src}
-                          download={shoot.images[activeImageIndex].filename}
-                          className="px-3.5 py-1.5 bg-white text-black font-mono text-xs uppercase tracking-wider font-semibold flex items-center gap-1.5 hover:bg-white/90 cursor-pointer shadow-md"
-                        >
-                          <Download className="w-3.5 h-3.5" /> Download
-                        </a>
-                        <button
-                          onClick={() => setActiveImageIndex(null)}
-                          className="p-1.5 bg-black/75 hover:bg-black text-white border border-white/10 cursor-pointer"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
+                      <span className="text-white/70 font-mono text-xs hidden sm:inline truncate max-w-sm">
+                        {shoot.images[activeImageIndex].filename}
+                      </span>
                     </div>
 
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={shoot.images[activeImageIndex].src}
+                        download={shoot.images[activeImageIndex].filename}
+                        className="px-4 py-2 bg-white text-black font-mono text-xs uppercase tracking-wider font-semibold flex items-center gap-2 hover:bg-white/90 transition-colors cursor-pointer shadow-xl"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </a>
+                      <button
+                        onClick={() => setActiveImageIndex(null)}
+                        className="p-2 bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-colors cursor-pointer"
+                        title="Close preview (Esc)"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Centered Photo & Navigation */}
+                  <div
+                    className="relative flex-1 w-full flex items-center justify-center min-h-0 my-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {/* Previous Button */}
                     {shoot.images.length > 1 && (
                       <button
@@ -258,21 +265,19 @@ export default function GalleryClient() {
                             prev === null || prev === 0 ? shoot.images.length - 1 : prev - 1
                           )
                         }
-                        className="absolute left-2 z-20 p-3 bg-black/60 hover:bg-black text-white backdrop-blur-md border border-white/10 cursor-pointer transition-colors"
+                        className="absolute left-1 sm:left-4 z-30 p-3 sm:p-4 bg-black/75 hover:bg-black text-white backdrop-blur-md border border-white/15 transition-all cursor-pointer shadow-2xl hover:scale-105"
                         title="Previous Photo (Left Arrow)"
                       >
                         <ChevronLeft className="w-6 h-6" />
                       </button>
                     )}
 
-                    {/* Full Photo */}
-                    <div className="relative w-full h-full max-h-[82vh] flex items-center justify-center p-2">
-                      <img
-                        src={shoot.images[activeImageIndex].src}
-                        alt={shoot.images[activeImageIndex].alt}
-                        className="max-h-[80vh] max-w-full object-contain shadow-2xl"
-                      />
-                    </div>
+                    {/* Image */}
+                    <img
+                      src={shoot.images[activeImageIndex].src}
+                      alt={shoot.images[activeImageIndex].alt}
+                      className="max-h-full max-w-full w-auto h-auto object-contain block mx-auto shadow-2xl"
+                    />
 
                     {/* Next Button */}
                     {shoot.images.length > 1 && (
@@ -282,13 +287,18 @@ export default function GalleryClient() {
                             prev === null || prev === shoot.images.length - 1 ? 0 : prev + 1
                           )
                         }
-                        className="absolute right-2 z-20 p-3 bg-black/60 hover:bg-black text-white backdrop-blur-md border border-white/10 cursor-pointer transition-colors"
+                        className="absolute right-1 sm:right-4 z-30 p-3 sm:p-4 bg-black/75 hover:bg-black text-white backdrop-blur-md border border-white/15 transition-all cursor-pointer shadow-2xl hover:scale-105"
                         title="Next Photo (Right Arrow)"
                       >
                         <ChevronRight className="w-6 h-6" />
                       </button>
                     )}
-                  </motion.div>
+                  </div>
+
+                  {/* Mobile Filename Caption */}
+                  <div className="sm:hidden text-center text-[10px] font-mono text-white/50 truncate pt-1 shrink-0">
+                    {shoot.images[activeImageIndex].filename}
+                  </div>
                 </div>
               )}
             </AnimatePresence>
