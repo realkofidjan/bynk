@@ -410,10 +410,18 @@ export default function CustomOrderCreator({
     }
   };
 
+  // Check if selected date is a Saturday
+  const isSaturday = React.useMemo(() => {
+    if (!date) return false;
+    const [y, m, d] = date.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.getDay() === 6;
+  }, [date]);
+
   // Generate time slots exactly matching the /book component
   const standardSlots = React.useMemo(() => {
     const slots = [];
-    const startMins = 9 * 60; // 09:00 AM
+    const startMins = isSaturday ? 12 * 60 : 9 * 60; // 12:00 PM on Saturdays, 09:00 AM on other days
     const endMins = 19 * 60; // 07:00 PM
 
     for (let current = startMins; current + durationMinutes <= endMins; current += 30) {
@@ -430,7 +438,7 @@ export default function CustomOrderCreator({
       });
     }
     return slots;
-  }, [durationMinutes]);
+  }, [durationMinutes, isSaturday]);
 
   // Status & submission state
   const [submitting, setSubmitting] = useState(false);

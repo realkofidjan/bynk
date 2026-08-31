@@ -312,8 +312,20 @@ export function getBookingEndTime(b: Booking): string {
 export function calculateAvailableTimeSlots(
   dateBookings: Booking[],
   categoryId: string,
-  tierName: string
+  tierName: string,
+  dateStr?: string
 ): AvailableSlot[] {
+  // Determine if target date is a Saturday (day of week 6)
+  const targetDateStr = dateStr || (dateBookings.length > 0 ? dateBookings[0].date : '');
+  let isSaturday = false;
+  if (targetDateStr) {
+    const [y, m, d] = targetDateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    if (dt.getDay() === 6) {
+      isSaturday = true;
+    }
+  }
+
   // If target is full day
   const isTargetFullDay = isFullDayCategory(categoryId, tierName);
 
@@ -323,7 +335,7 @@ export function calculateAvailableTimeSlots(
       return [
         {
           timeStr: 'full_day',
-          label: 'Full Day Session (Starts 9:00 AM)',
+          label: isSaturday ? 'Full Day Session (Starts 12:00 PM)' : 'Full Day Session (Starts 9:00 AM)',
           endTimeStr: '17:00',
           endLabel: '5:00 PM',
           durationMinutes: 480,
@@ -365,8 +377,12 @@ export function calculateAvailableTimeSlots(
 
   const validSlots: AvailableSlot[] = [];
 
-  // Generate candidate start times starting at 9:00 AM in 30-min increments
-  for (let candStart = WORK_DAY_START_MINS; candStart <= WORK_DAY_END_MINS - duration; candStart += 30) {
+  // On Saturdays, time slots before 12:00 PM are crossed out / unavailable (start at 12:00 PM = 720 mins)
+  // On other days, start at 9:00 AM (540 mins)
+  const dayStartMins = isSaturday ? 12 * 60 : WORK_DAY_START_MINS;
+
+  // Generate candidate start times in 30-min increments
+  for (let candStart = dayStartMins; candStart <= WORK_DAY_END_MINS - duration; candStart += 30) {
     const candEnd = candStart + duration;
 
     // Must finish by work day end (19:00 / 7:00 PM)

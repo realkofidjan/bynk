@@ -658,7 +658,7 @@ function BookingFormLightbox({
 
           const dateKey = toDateKey(testDate);
           const dateBookings = bookings.filter((b) => b.date === dateKey);
-          const slots = calculateAvailableTimeSlots(dateBookings, categoryId, tierName);
+          const slots = calculateAvailableTimeSlots(dateBookings, categoryId, tierName, dateKey);
 
           if (slots.length === 0) {
             blocked.push(testDate);
@@ -685,7 +685,7 @@ function BookingFormLightbox({
 
   const availableSlots = useMemo(() => {
     if (!dateKey) return [];
-    return calculateAvailableTimeSlots(dateBookings, categoryId, tierName);
+    return calculateAvailableTimeSlots(dateBookings, categoryId, tierName, dateKey);
   }, [dateBookings, categoryId, tierName, dateKey]);
 
   // Auto-set slot for full-day categories
@@ -988,7 +988,9 @@ function BookingFormLightbox({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-foreground/70 text-[9px] font-mono uppercase tracking-[0.25em] font-medium">
-                      Preferred Start Time (From 9:00 AM)
+                      {date.getDay() === 6
+                        ? 'Preferred Start Time (Saturdays from 12:00 PM)'
+                        : 'Preferred Start Time (From 9:00 AM)'}
                     </label>
                     <span className="text-[9px] font-mono text-foreground/40">
                       Duration: {getTierDurationMinutes(categoryId, tierName)} mins

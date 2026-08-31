@@ -68,6 +68,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sundays are unavailable for booking' }, { status: 400 });
     }
 
+    // Check if date is a Saturday and time slot starts before 12:00 PM
+    if (bookingDate.getDay() === 6 && slot !== 'full_day') {
+      const timeStr = slot.includes(':') ? slot : slot === 'morning' ? '09:00' : '14:00';
+      const [h] = timeStr.split(':').map(Number);
+      if (h < 12) {
+        return NextResponse.json(
+          { error: 'Saturday sessions are only available from 12:00 PM onwards.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Enforce 4-day advance notice requirement
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -101,7 +113,8 @@ export async function POST(request: NextRequest) {
     const availableSlots = calculateAvailableTimeSlots(
       (existingBookings as Booking[]) || [],
       category,
-      tier
+      tier,
+      date
     );
 
     const isSlotValid = availableSlots.some((s) => s.timeStr === slot);
