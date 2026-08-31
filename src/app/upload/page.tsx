@@ -21,8 +21,8 @@ import {
   Image as ImageIcon,
   FolderGit2,
   Search,
-  Maximize2,
   X,
+  Maximize2,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -437,14 +437,12 @@ export default function UploadPage() {
                     className="bg-foreground/[0.02] border border-foreground/15 hover:border-foreground/30 transition-all flex flex-col justify-between overflow-hidden group"
                   >
                     {/* Cover Photo Header */}
-                    <div className="relative aspect-[16/10] bg-foreground/5 overflow-hidden border-b border-foreground/10">
+                    <div className="relative aspect-[16/10] bg-neutral-950 overflow-hidden border-b border-foreground/10 flex items-center justify-center">
                       {gallery.coverPhoto ? (
-                        <Image
+                        <img
                           src={gallery.coverPhoto}
                           alt={gallery.clientInfo}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          unoptimized
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-foreground/20">
@@ -453,7 +451,7 @@ export default function UploadPage() {
                       )}
 
                       {/* Top Overlay Badge */}
-                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-auto">
                         <span className="bg-background/90 backdrop-blur-md text-foreground px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider font-semibold border border-foreground/10 shadow-sm">
                           {gallery.imageCount} Photo{gallery.imageCount === 1 ? '' : 's'} · {gallery.totalSizeMb} MB
                         </span>
@@ -601,8 +599,8 @@ export default function UploadPage() {
                     className="bg-foreground/[0.02] border border-foreground/10 hover:border-foreground/25 transition-all p-4 space-y-3 flex flex-col justify-between"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="relative w-14 h-14 bg-foreground/5 border border-foreground/10 shrink-0 overflow-hidden">
-                        <Image src={item.localUrl} alt={item.filename} fill className="object-cover" unoptimized />
+                      <div className="relative w-14 h-14 bg-neutral-950 border border-foreground/10 shrink-0 overflow-hidden flex items-center justify-center">
+                        <img src={item.localUrl} alt={item.filename} className="w-full h-full object-contain" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-mono text-xs text-foreground truncate font-medium">{item.filename}</p>
@@ -765,28 +763,32 @@ export default function UploadPage() {
                       </label>
                     </div>
 
-                    {/* Previews Grid - Shows Full Uncropped Images */}
+                    {/* Previews Grid - Strictly Non-Overlapping Thumbnails */}
                     {previews.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 border border-foreground/10 bg-foreground/[0.02]">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 border border-foreground/10 bg-foreground/[0.02] custom-scrollbar">
                         {previews.map((preview, index) => {
                           const isCover = coverPhotoIndex === index;
                           return (
                             <div
                               key={index}
                               onClick={() => setLightboxIndex(index)}
-                              className={`relative aspect-[3/4] bg-neutral-950 border overflow-hidden group flex flex-col justify-between transition-all cursor-pointer ${
-                                isCover ? 'border-amber-400 ring-2 ring-amber-400/60 shadow-lg' : 'border-foreground/20 hover:border-foreground/50'
+                              className={`relative w-full aspect-[3/4] bg-neutral-950 border overflow-hidden group flex flex-col justify-between cursor-pointer rounded-none select-none transition-all ${
+                                isCover
+                                  ? 'border-amber-400 ring-2 ring-amber-400/60 shadow-lg'
+                                  : 'border-foreground/20 hover:border-foreground/50'
                               }`}
                             >
-                              {/* Full Uncropped Image with object-contain */}
-                              <img
-                                src={preview.url}
-                                alt={`Preview ${index}`}
-                                className="w-full h-full object-contain p-1"
-                              />
+                              {/* Centered bounded image strictly inside container */}
+                              <div className="absolute inset-0 flex items-center justify-center p-1 overflow-hidden pointer-events-none">
+                                <img
+                                  src={preview.url}
+                                  alt={`Preview ${index}`}
+                                  className="max-w-full max-h-full w-auto h-auto object-contain block"
+                                />
+                              </div>
 
-                              {/* Top Control Bar with Glassmorphic Badges */}
-                              <div className="absolute top-1.5 inset-x-1.5 flex items-center justify-between pointer-events-auto">
+                              {/* Top Control Overlay */}
+                              <div className="relative z-10 p-1.5 flex items-center justify-between pointer-events-auto">
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -795,7 +797,7 @@ export default function UploadPage() {
                                   }}
                                   className={`px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer backdrop-blur-md shadow-sm ${
                                     isCover
-                                      ? 'bg-amber-400 text-black font-bold'
+                                      ? 'bg-amber-400 text-black font-bold shadow-md'
                                       : 'bg-black/75 text-white/80 hover:bg-black hover:text-white'
                                   }`}
                                   title={isCover ? 'Cover Photo' : 'Set as Cover Photo'}
@@ -818,7 +820,7 @@ export default function UploadPage() {
                               </div>
 
                               {/* Bottom Filename Overlay */}
-                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-1.5 pt-4 text-[9px] font-mono text-white/90 truncate pointer-events-none">
+                              <div className="relative z-10 mt-auto bg-gradient-to-t from-black/95 via-black/70 to-transparent p-1.5 pt-3 text-[9px] font-mono text-white/90 truncate pointer-events-none">
                                 <span className="truncate block">{preview.file.name}</span>
                               </div>
                             </div>
