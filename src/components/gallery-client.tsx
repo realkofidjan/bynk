@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { verifyPasscode } from '@/app/gallery/actions';
 import { Shoot } from '@/lib/shoots';
-import { Download, Info, Loader2, X } from 'lucide-react';
+import { Download, Info, Loader2, X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import Image from 'next/image';
 import {
   InputOTP,
@@ -17,6 +17,7 @@ export default function GalleryClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [shoot, setShoot] = useState<Shoot | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
 
   const handleComplete = useCallback(async (value: string) => {
     if (loading) return;
@@ -125,14 +126,14 @@ export default function GalleryClient() {
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif tracking-tight">{shoot.clientInfo}</h1>
                 <p className="text-foreground/60 font-mono text-[10px] uppercase tracking-widest flex items-center gap-2">
                   <Info className="w-3 h-3" />
-                  {shoot.images.length} High-Res Photos
+                  {shoot.images.length} High-Res Photos · Click any photo to view full image
                 </p>
               </div>
               
               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-foreground/10 pt-2 sm:pt-0">
                 <button
                   onClick={handleDownload}
-                  className="flex items-center gap-2 px-3 py-2 bg-foreground text-background font-mono text-[10px] uppercase tracking-widest hover:bg-foreground/90 transition-colors shrink-0 shadow-sm"
+                  className="flex items-center gap-2 px-3 py-2 bg-foreground text-background font-mono text-[10px] uppercase tracking-widest hover:bg-foreground/90 transition-colors shrink-0 shadow-sm cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download All (.zip)
@@ -148,36 +149,118 @@ export default function GalleryClient() {
               </div>
             </div>
 
-            {/* Gallery Photos Grid - 2 columns on mobile, uniform square tiles with even gaps */}
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4 pr-1 pb-16">
+            {/* Gallery Photos Grid */}
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 pr-1 pb-16 custom-scrollbar">
               {shoot.images.map((image, index) => (
                 <motion.div
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.04 }}
+                  transition={{ delay: index * 0.03 }}
                   key={image.src}
-                  className="relative group aspect-square bg-foreground/5 overflow-hidden rounded-none"
+                  onClick={() => setActiveImageIndex(index)}
+                  className="relative group aspect-[3/4] bg-neutral-950 border border-foreground/10 hover:border-foreground/40 overflow-hidden cursor-pointer"
                 >
                   <Image
                     src={image.src}
                     alt={image.alt}
                     fill
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    sizes="(max-width: 768px) 50vw, 33vw"
+                    className="object-contain p-1 transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+                    sizes="(max-width: 768px) 50vw, 25vw"
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-500" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+                  
                   <a
                     href={image.src}
                     download={image.filename}
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 z-10 flex items-center justify-center w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-black/75 backdrop-blur-md text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 ease-out hover:bg-black/90 shadow-md"
+                    className="absolute bottom-2 right-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-black/75 backdrop-blur-md text-white opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 ease-out hover:bg-black shadow-md cursor-pointer"
                     title={`Download ${image.filename}`}
                   >
-                    <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <Download className="w-3.5 h-3.5" />
                   </a>
                 </motion.div>
               ))}
             </div>
+
+            {/* Full-Screen Lightbox */}
+            <AnimatePresence>
+              {activeImageIndex !== null && shoot.images[activeImageIndex] && (
+                <div
+                  className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+                  onClick={() => setActiveImageIndex(null)}
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="relative max-w-6xl max-h-[92vh] w-full h-full flex flex-col items-center justify-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Top Controls */}
+                    <div className="absolute top-2 inset-x-2 z-20 flex items-center justify-between pointer-events-auto">
+                      <span className="px-3 py-1 bg-black/70 backdrop-blur-md text-white/90 text-xs font-mono">
+                        {activeImageIndex + 1} / {shoot.images.length} · {shoot.images[activeImageIndex].filename}
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={shoot.images[activeImageIndex].src}
+                          download={shoot.images[activeImageIndex].filename}
+                          className="px-3 py-1.5 bg-white text-black font-mono text-xs uppercase tracking-wider flex items-center gap-1.5 hover:bg-white/90 cursor-pointer shadow-md"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download
+                        </a>
+                        <button
+                          onClick={() => setActiveImageIndex(null)}
+                          className="p-1.5 bg-black/70 hover:bg-black text-white cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Previous Button */}
+                    {shoot.images.length > 1 && (
+                      <button
+                        onClick={() =>
+                          setActiveImageIndex((prev) =>
+                            prev === null || prev === 0 ? shoot.images.length - 1 : prev - 1
+                          )
+                        }
+                        className="absolute left-2 z-20 p-2.5 bg-black/60 hover:bg-black text-white backdrop-blur-md cursor-pointer transition-colors"
+                        title="Previous Photo"
+                      >
+                        <ChevronLeft className="w-6 h-6" />
+                      </button>
+                    )}
+
+                    {/* Full Photo */}
+                    <div className="relative w-full h-full max-h-[82vh] flex items-center justify-center p-2">
+                      <img
+                        src={shoot.images[activeImageIndex].src}
+                        alt={shoot.images[activeImageIndex].alt}
+                        className="max-h-[80vh] max-w-full object-contain shadow-2xl"
+                      />
+                    </div>
+
+                    {/* Next Button */}
+                    {shoot.images.length > 1 && (
+                      <button
+                        onClick={() =>
+                          setActiveImageIndex((prev) =>
+                            prev === null || prev === shoot.images.length - 1 ? 0 : prev + 1
+                          )
+                        }
+                        className="absolute right-2 z-20 p-2.5 bg-black/60 hover:bg-black text-white backdrop-blur-md cursor-pointer transition-colors"
+                        title="Next Photo"
+                      >
+                        <ChevronRight className="w-6 h-6" />
+                      </button>
+                    )}
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

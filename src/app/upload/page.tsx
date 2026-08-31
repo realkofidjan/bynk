@@ -21,6 +21,8 @@ import {
   Image as ImageIcon,
   FolderGit2,
   Search,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -63,6 +65,7 @@ export default function UploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [coverPhotoIndex, setCoverPhotoIndex] = useState(0);
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Asset Drag & Drop State
   const [dragging, setDragging] = useState(false);
@@ -119,6 +122,9 @@ export default function UploadPage() {
     setPreviews(updatedPreviews);
     if (coverPhotoIndex >= updatedFiles.length) {
       setCoverPhotoIndex(Math.max(0, updatedFiles.length - 1));
+    }
+    if (lightboxIndex === index) {
+      setLightboxIndex(null);
     }
   };
 
@@ -643,7 +649,7 @@ export default function UploadPage() {
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-background border border-foreground/20 max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto"
+                className="bg-background border border-foreground/20 max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto custom-scrollbar"
               >
                 {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-foreground/15 pb-4">
@@ -729,14 +735,14 @@ export default function UploadPage() {
                   </div>
 
                   {/* Multi-Image File Selection */}
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="block text-[9px] font-mono uppercase tracking-[0.2em] text-foreground/70">
                         Select Shoot Photos ({selectedFiles.length} selected) *
                       </label>
                       {previews.length > 0 && (
                         <span className="text-[9px] font-mono text-foreground/40">
-                          Click ★ on an image to set Cover Photo
+                          Click ★ to set Cover Photo · Click image to expand
                         </span>
                       )}
                     </div>
@@ -759,51 +765,61 @@ export default function UploadPage() {
                       </label>
                     </div>
 
-                    {/* Previews Grid */}
+                    {/* Previews Grid - Shows Full Uncropped Images */}
                     {previews.length > 0 && (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-2 border border-foreground/10 bg-foreground/[0.02]">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 border border-foreground/10 bg-foreground/[0.02]">
                         {previews.map((preview, index) => {
                           const isCover = coverPhotoIndex === index;
                           return (
                             <div
                               key={index}
-                              className={`relative aspect-square border overflow-hidden group ${
-                                isCover ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-foreground/20'
+                              onClick={() => setLightboxIndex(index)}
+                              className={`relative aspect-[3/4] bg-neutral-950 border overflow-hidden group flex flex-col justify-between transition-all cursor-pointer ${
+                                isCover ? 'border-amber-400 ring-2 ring-amber-400/60 shadow-lg' : 'border-foreground/20 hover:border-foreground/50'
                               }`}
                             >
+                              {/* Full Uncropped Image with object-contain */}
                               <img
                                 src={preview.url}
                                 alt={`Preview ${index}`}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain p-1"
                               />
 
-                              {/* Cover Indicator Button */}
-                              <button
-                                type="button"
-                                onClick={() => setCoverPhotoIndex(index)}
-                                className={`absolute top-1 left-1 p-1 rounded-none text-[8px] font-mono uppercase tracking-wider transition-colors cursor-pointer ${
-                                  isCover
-                                    ? 'bg-amber-400 text-black font-bold'
-                                    : 'bg-black/70 text-white/80 hover:bg-black'
-                                }`}
-                                title={isCover ? 'Cover Photo' : 'Set as Cover Photo'}
-                              >
-                                <Star className={`w-3 h-3 ${isCover ? 'fill-current' : ''}`} />
-                              </button>
+                              {/* Top Control Bar with Glassmorphic Badges */}
+                              <div className="absolute top-1.5 inset-x-1.5 flex items-center justify-between pointer-events-auto">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCoverPhotoIndex(index);
+                                  }}
+                                  className={`px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer backdrop-blur-md shadow-sm ${
+                                    isCover
+                                      ? 'bg-amber-400 text-black font-bold'
+                                      : 'bg-black/75 text-white/80 hover:bg-black hover:text-white'
+                                  }`}
+                                  title={isCover ? 'Cover Photo' : 'Set as Cover Photo'}
+                                >
+                                  <Star className={`w-2.5 h-2.5 ${isCover ? 'fill-current' : ''}`} />
+                                  {isCover ? 'Cover' : 'Set Cover'}
+                                </button>
 
-                              {/* Remove Button */}
-                              <button
-                                type="button"
-                                onClick={() => removeGalleryFile(index)}
-                                className="absolute top-1 right-1 p-1 bg-red-600/80 text-white hover:bg-red-600 transition-colors cursor-pointer"
-                                title="Remove photo"
-                              >
-                                ✕
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeGalleryFile(index);
+                                  }}
+                                  className="p-1 bg-black/75 hover:bg-red-600 text-white/90 hover:text-white backdrop-blur-md transition-colors cursor-pointer shadow-sm"
+                                  title="Remove photo"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
 
-                              {/* Filename caption */}
-                              <div className="absolute bottom-0 inset-x-0 bg-black/70 p-1 text-[8px] font-mono text-white/80 truncate">
-                                {preview.file.name}
+                              {/* Bottom Filename Overlay */}
+                              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-1.5 pt-4 text-[9px] font-mono text-white/90 truncate pointer-events-none">
+                                <span className="truncate block">{preview.file.name}</span>
                               </div>
                             </div>
                           );
@@ -840,6 +856,44 @@ export default function UploadPage() {
                     </button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* LIGHTBOX FOR FULL IMAGE INSPECTION */}
+        <AnimatePresence>
+          {lightboxIndex !== null && previews[lightboxIndex] && (
+            <div
+              className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+              onClick={() => setLightboxIndex(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative max-w-5xl max-h-[90vh] w-full h-full flex flex-col items-center justify-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setLightboxIndex(null)}
+                  className="absolute top-2 right-2 z-10 p-2 bg-black/70 hover:bg-black text-white text-xs font-mono flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" /> Close
+                </button>
+
+                <img
+                  src={previews[lightboxIndex].url}
+                  alt={previews[lightboxIndex].file.name}
+                  className="max-h-[82vh] max-w-full object-contain shadow-2xl"
+                />
+
+                <div className="mt-3 text-center text-xs font-mono text-white/80">
+                  <span>{previews[lightboxIndex].file.name}</span> ·{' '}
+                  <span>
+                    Photo {lightboxIndex + 1} of {previews.length}
+                  </span>
+                </div>
               </motion.div>
             </div>
           )}
