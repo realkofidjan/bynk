@@ -84,7 +84,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Lux',
-        priceNum: 2000,
+        priceNum: 2100,
         durationMinutes: 120,
         features: [
           'Creative lighting variations',
@@ -95,7 +95,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Platinum',
-        priceNum: 2800,
+        priceNum: 3050,
         durationMinutes: 180,
         features: [
           'Multiple lighting setups & background variation',
@@ -106,7 +106,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Custom',
-        priceNum: 2000,
+        priceNum: 2100,
         durationMinutes: 120,
         features: ['Custom studio portraiture tailored to client specifications.'],
       },
@@ -129,7 +129,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Lux',
-        priceNum: 2200,
+        priceNum: 2350,
         durationMinutes: 90,
         features: [
           '1–2 locations · 2 outfits',
@@ -141,7 +141,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Platinum',
-        priceNum: 3100,
+        priceNum: 3400,
         durationMinutes: 150,
         features: [
           'Up to 2 locations · 3 outfits',
@@ -152,7 +152,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Custom',
-        priceNum: 2200,
+        priceNum: 2350,
         durationMinutes: 90,
         features: ['Custom location shoot with tailored requirements.'],
       },
@@ -176,7 +176,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Lux',
-        priceNum: 5800,
+        priceNum: 6050,
         durationMinutes: 480,
         fullDay: true,
         features: [
@@ -189,7 +189,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Platinum',
-        priceNum: 7800,
+        priceNum: 8200,
         durationMinutes: 600,
         fullDay: true,
         features: [
@@ -202,7 +202,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
       },
       {
         name: 'Custom',
-        priceNum: 6000,
+        priceNum: 6050,
         durationMinutes: 480,
         fullDay: true,
         features: ['Custom wedding package with creative direction.'],

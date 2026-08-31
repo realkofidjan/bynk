@@ -75,7 +75,7 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 2,000',
+        price: 'GHS 2,100',
         duration: 'Up to 2 hours · 2 outfits',
         features: [
           'Individual, couple or small-group session',
@@ -89,7 +89,7 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 2,800',
+        price: 'GHS 3,050',
         duration: 'Up to 3 hours · 3 outfits',
         features: [
           'Individual, couple or family session',
@@ -125,7 +125,7 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 2,200',
+        price: 'GHS 2,350',
         duration: 'Up to 1.5 hours · 1–2 locations · 2 outfits',
         bestValue: true,
         features: [
@@ -140,7 +140,7 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 3,100',
+        price: 'GHS 3,400',
         duration: 'Up to 2.5 hours · Up to 2 locations · 3 outfits',
         features: [
           'Up to 2 locations & multiple lighting setups',
@@ -177,7 +177,7 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 5,800',
+        price: 'GHS 6,050',
         duration: 'Up to 8 hours · 1 lead photographer',
         bestValue: true,
         features: [
@@ -193,7 +193,7 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 7,800',
+        price: 'GHS 8,200',
         duration: 'Up to 10 hours · 2 photographers',
         features: [
           'Full traditional or white wedding coverage',
