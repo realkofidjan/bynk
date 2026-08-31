@@ -24,6 +24,8 @@ import {
   getBookingStartTime,
   getBookingEndTime,
   calculateBookingFinancials,
+  getCleanTierName,
+  formatAddOnName,
 } from '@/lib/booking-types';
 import {
   createIcsContent,
@@ -42,7 +44,7 @@ export default function SchedulePage() {
     try {
       setLoading(true);
       setError('');
-      const res = await fetch('/api/shoots?limit=100');
+      const res = await fetch('/api/shoots?filter=all&limit=200');
       if (!res.ok) {
         throw new Error('Failed to fetch schedule data');
       }
@@ -63,11 +65,16 @@ export default function SchedulePage() {
   const todayStr = toDateKey(new Date());
 
   const filteredShoots = shoots.filter((shoot) => {
+    const isCompleted =
+      shoot.date < todayStr ||
+      (shoot.tier && shoot.tier.includes('[Completed]')) ||
+      shoot.status === 'completed';
+
     if (filter === 'upcoming') {
-      return shoot.date >= todayStr && shoot.status !== 'cancelled';
+      return !isCompleted && shoot.status !== 'cancelled';
     }
     if (filter === 'completed') {
-      return shoot.status === 'completed' || (shoot.date < todayStr && shoot.status !== 'cancelled');
+      return isCompleted && shoot.status !== 'cancelled';
     }
     return shoot.status !== 'cancelled';
   });
@@ -208,6 +215,15 @@ export default function SchedulePage() {
                 ? 'Full Day Coverage (9:00 AM)'
                 : `${formatTimeLabel(startTime)} – ${formatTimeLabel(endTime)}`;
 
+              const isCompleted =
+                shoot.date < todayStr ||
+                (shoot.tier && shoot.tier.includes('[Completed]')) ||
+                shoot.status === 'completed';
+
+              const cleanTier = getCleanTierName(shoot.tier);
+              const completionNote = shoot.add_ons?.find((a) => String(a).startsWith('Completed:'));
+              const displayAddOns = (shoot.add_ons || []).filter((a) => !String(a).startsWith('Completed:'));
+
               const { depositPaid, remainingBalance } = calculateBookingFinancials({
                 total_price: shoot.total_price || 0,
                 add_ons: shoot.add_ons || [],
@@ -219,7 +235,11 @@ export default function SchedulePage() {
                   key={shoot.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-foreground/[0.02] border border-foreground/15 hover:border-foreground/30 transition-all p-5 sm:p-6 space-y-4"
+                  className={`bg-foreground/[0.02] border p-5 sm:p-6 space-y-4 transition-all ${
+                    isCompleted
+                      ? 'border-emerald-500/25 hover:border-emerald-500/40 bg-emerald-500/[0.01]'
+                      : 'border-foreground/15 hover:border-foreground/30'
+                  }`}
                 >
                   {/* Top Bar: Date, Time & Status */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-foreground/10 pb-3">
@@ -234,9 +254,16 @@ export default function SchedulePage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 border border-foreground/20 text-foreground/70">
-                        {shoot.status}
-                      </span>
+                      {isCompleted ? (
+                        <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 border bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Completed
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-0.5 border border-foreground/20 text-foreground/70">
+                          {shoot.status}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -270,32 +297,55 @@ export default function SchedulePage() {
                         {shoot.category}
                       </p>
                       <p className="text-[11px] font-mono text-foreground/60">
-                        Tier: <span className="text-foreground">{shoot.tier}</span>
+                        Tier: <span className="text-foreground">{cleanTier}</span>
                       </p>
-                      {shoot.add_ons && shoot.add_ons.length > 0 && (
+                      {displayAddOns && displayAddOns.length > 0 && (
                         <p className="text-[10px] font-mono text-foreground/40">
-                          Add-ons: {shoot.add_ons.join(', ')}
+                          Add-ons: {displayAddOns.map(formatAddOnName).join(', ')}
+                        </p>
+                      )}
+                      {completionNote && (
+                        <p className="text-[10px] font-mono text-emerald-400 pt-1">
+                          ✓ {completionNote}
                         </p>
                       )}
                     </div>
 
                     {/* Financial Breakdown */}
                     <div className="space-y-1 bg-foreground/[0.03] border border-foreground/10 p-3">
-                      <p className="text-[9px] font-mono uppercase tracking-[0.25em] text-foreground/40">
+                      <p className="text-[9px] font-mono uppercase tracking-[0.25em] text-foreground/50">
                         Financial Summary
                       </p>
                       <div className="flex justify-between text-xs font-mono">
                         <span className="text-foreground/60">Total:</span>
                         <span className="text-foreground font-medium">GHS {shoot.total_price.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between text-xs font-mono">
-                        <span className="text-foreground/60">Deposit Paid:</span>
-                        <span className="text-emerald-500 font-medium">GHS {depositPaid.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-xs font-mono pt-1 border-t border-foreground/10">
-                        <span className="text-foreground/60">Balance Due:</span>
-                        <span className="text-foreground font-semibold">GHS {remainingBalance.toLocaleString()}</span>
-                      </div>
+                      {isCompleted ? (
+                        <>
+                          <div className="flex justify-between text-xs font-mono">
+                            <span className="text-foreground/60">Settlement:</span>
+                            <span className="text-emerald-400 font-medium">Paid in Full</span>
+                          </div>
+                          <div className="flex justify-between text-xs font-mono pt-1 border-t border-foreground/10">
+                            <span className="text-foreground/60">Balance Due:</span>
+                            <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              GHS 0 (Settled)
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between text-xs font-mono">
+                            <span className="text-foreground/60">Deposit Paid:</span>
+                            <span className="text-emerald-500 font-medium">GHS {depositPaid.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs font-mono pt-1 border-t border-foreground/10">
+                            <span className="text-foreground/60">Balance Due:</span>
+                            <span className="text-foreground font-semibold">GHS {remainingBalance.toLocaleString()}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 

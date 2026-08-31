@@ -18,8 +18,11 @@ export async function GET(request: NextRequest) {
 
     if (filter === 'upcoming') {
       query = query.gte('date', todayStr).order('date', { ascending: true });
-    } else {
+    } else if (filter === 'completed') {
       query = query.lt('date', todayStr).order('date', { ascending: false });
+    } else {
+      // 'all' or unfiltered
+      query = query.order('date', { ascending: false });
     }
 
     if (search) {
