@@ -266,7 +266,8 @@ export function syncShootsManifest(): Shoot[] {
       const images: ShootImage[] = imageFiles.map((filename) => {
         return {
           filename,
-          src: `${GITHUB_RAW_BASE}/${folder.name}/${filename}`,
+          src: `/api/shoots/image?slug=${folder.name}&file=${filename}`,
+          rawUrl: `${GITHUB_RAW_BASE}/${folder.name}/${filename}`,
           alt: `${clientInfo} - ${path.parse(filename).name}`,
         };
       });
@@ -275,7 +276,7 @@ export function syncShootsManifest(): Shoot[] {
         slug: folder.name,
         passcode,
         clientInfo,
-        coverPhoto: coverPhoto ? `${GITHUB_RAW_BASE}/${folder.name}/${coverPhoto}` : '',
+        coverPhoto: coverPhoto ? `/api/shoots/image?slug=${folder.name}&file=${coverPhoto}` : '',
         images,
       };
     })

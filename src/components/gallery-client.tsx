@@ -204,6 +204,13 @@ export default function GalleryClient() {
                       <img
                         src={image.src}
                         alt={image.alt}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          const raw = `https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/${shoot.slug}/${encodeURIComponent(image.filename)}`;
+                          if (target.src !== raw) {
+                            target.src = raw;
+                          }
+                        }}
                         className="max-w-full max-h-full w-auto h-auto object-contain block mx-auto transition-transform duration-500 group-hover:scale-[1.02]"
                       />
                     </div>
@@ -294,6 +301,13 @@ export default function GalleryClient() {
                     <img
                       src={shoot.images[activeImageIndex].src}
                       alt={shoot.images[activeImageIndex].alt}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        const raw = `https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/${shoot.slug}/${encodeURIComponent(shoot.images[activeImageIndex].filename)}`;
+                        if (target.src !== raw) {
+                          target.src = raw;
+                        }
+                      }}
                       className="max-h-full max-w-full w-auto h-auto object-contain block mx-auto shadow-2xl"
                     />
 
