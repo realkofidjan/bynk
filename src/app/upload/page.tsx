@@ -22,9 +22,12 @@ import {
   FolderGit2,
   Search,
   X,
-  Maximize2,
+  User,
+  Phone,
+  Calendar,
+  Send,
+  Sparkle,
 } from 'lucide-react';
-import Image from 'next/image';
 
 interface ClientGalleryItem {
   slug: string;
@@ -47,10 +50,30 @@ interface UploadedFileItem {
   githubBlobUrl: string;
 }
 
+interface PastBooking {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  date: string;
+  package_name: string;
+  status: string;
+  total_price: number;
+}
+
+function formatPhoneForWhatsApp(phone: string): string {
+  let cleaned = phone.replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0') && cleaned.length === 10) {
+    cleaned = '233' + cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 export default function UploadPage() {
   const [activeTab, setActiveTab] = useState<'galleries' | 'assets'>('galleries');
   const [clientGalleries, setClientGalleries] = useState<ClientGalleryItem[]>([]);
   const [generalUploads, setGeneralUploads] = useState<UploadedFileItem[]>([]);
+  const [pastBookings, setPastBookings] = useState<PastBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
@@ -68,6 +91,13 @@ export default function UploadPage() {
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [converting, setConverting] = useState(false);
+
+  // WhatsApp Share Modal State
+  const [whatsappGallery, setWhatsappGallery] = useState<ClientGalleryItem | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<PastBooking | null>(null);
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
+  const [bookingSearch, setBookingSearch] = useState('');
 
   // Asset Drag & Drop State
   const [dragging, setDragging] = useState(false);
@@ -144,17 +174,26 @@ export default function UploadPage() {
     });
   };
 
-  // Fetch all galleries & uploads
+  // Fetch all galleries, uploads, and past shoots
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/upload');
-      if (res.ok) {
-        const data = await res.json();
+      const [uploadRes, shootsRes] = await Promise.all([
+        fetch('/api/upload'),
+        fetch('/api/shoots?filter=all&limit=200'),
+      ]);
+
+      if (uploadRes.ok) {
+        const data = await uploadRes.json();
         if (data.success) {
           setClientGalleries(data.clientGalleries || []);
           setGeneralUploads(data.generalUploads || []);
         }
+      }
+
+      if (shootsRes.ok) {
+        const shootsData = await shootsRes.json();
+        setPastBookings(shootsData.shoots || []);
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -408,13 +447,50 @@ export default function UploadPage() {
     setTimeout(() => setCopiedKey(null), 2500);
   };
 
-  // Copy WhatsApp client invite helper
-  const copyWhatsAppInvite = (gallery: ClientGalleryItem) => {
+  // Open WhatsApp Modal for a Gallery
+  const openWhatsAppModal = (gallery: ClientGalleryItem) => {
+    setWhatsappGallery(gallery);
+    setBookingSearch('');
+
+    // Try to auto-match client from past shoots
+    const match = pastBookings.find(
+      (b) =>
+        gallery.clientInfo.toLowerCase().includes(b.name.toLowerCase()) ||
+        b.name.toLowerCase().includes(gallery.clientInfo.toLowerCase()) ||
+        gallery.slug.toLowerCase().includes(b.name.toLowerCase().replace(/\s+/g, '_'))
+    );
+
+    if (match) {
+      setSelectedBooking(match);
+      setRecipientName(match.name);
+      setRecipientPhone(match.phone);
+    } else {
+      setSelectedBooking(null);
+      setRecipientName(gallery.clientInfo);
+      setRecipientPhone('');
+    }
+  };
+
+  // Build the WhatsApp message content
+  const generateWhatsAppMessage = () => {
+    if (!whatsappGallery) return '';
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://bynk.photography';
-    const text = `Hi ${gallery.clientInfo},\n\nYour private photography gallery is now ready to view and download! 📸\n\n🔗 *Gallery Link:* ${origin}/gallery\n🔑 *Passcode:* ${gallery.passcode}\n\nEnjoy your photos!\nBYNK Photography`;
-    navigator.clipboard.writeText(text);
-    setCopiedKey(`wa_${gallery.slug}`);
-    setTimeout(() => setCopiedKey(null), 3000);
+    const name = recipientName.trim() || whatsappGallery.clientInfo;
+    return `Hi ${name},\n\nYour private photography gallery for *${whatsappGallery.clientInfo}* is now ready to view and download! 📸\n\n🔗 *Gallery Link:* ${origin}/gallery\n🔑 *Passcode:* ${whatsappGallery.passcode}\n\nYou can view all ${whatsappGallery.imageCount} high-resolution photos and download them anytime.\n\nThank you for choosing BYNK Photography!`;
+  };
+
+  // Launch WhatsApp with pre-filled text
+  const handleSendWhatsApp = () => {
+    if (!recipientPhone.trim()) {
+      setStatusMessage({ type: 'error', text: 'Please select a client or enter a phone number' });
+      return;
+    }
+
+    const formattedPhone = formatPhoneForWhatsApp(recipientPhone);
+    const text = generateWhatsAppMessage();
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    setWhatsappGallery(null);
   };
 
   // Filtered lists
@@ -427,6 +503,14 @@ export default function UploadPage() {
 
   const filteredAssets = generalUploads.filter((a) =>
     a.filename.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredBookings = pastBookings.filter(
+    (b) =>
+      b.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      b.phone.includes(bookingSearch) ||
+      b.email.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      b.package_name.toLowerCase().includes(bookingSearch.toLowerCase())
   );
 
   return (
@@ -442,7 +526,7 @@ export default function UploadPage() {
               Upload Gallery Portal
             </h1>
             <p className="text-xs font-mono text-foreground/50 mt-1">
-              Create passcode-protected client galleries & upload assets with automatic Git commits to{' '}
+              Passcode-protected client galleries & assets synced to{' '}
               <code className="text-foreground font-semibold">realkofidjan/bynk (main)</code>
             </p>
           </div>
@@ -453,7 +537,7 @@ export default function UploadPage() {
                 if (!passcode) generateRandomPasscode();
                 setShowCreateModal(true);
               }}
-              className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer"
+              className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer font-semibold"
             >
               <Plus className="w-3.5 h-3.5" />
               New Client Gallery
@@ -462,7 +546,7 @@ export default function UploadPage() {
               onClick={fetchData}
               disabled={loading}
               className="p-2.5 border border-foreground/20 hover:bg-foreground/5 transition-colors cursor-pointer"
-              title="Refresh galleries and uploads"
+              title="Refresh galleries, uploads and past shoots"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-foreground/70 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -644,22 +728,14 @@ export default function UploadPage() {
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
+                      {/* Action Buttons: WhatsApp Client & Download ZIP */}
                       <div className="pt-2 border-t border-foreground/10 grid grid-cols-2 gap-2 text-[10px] font-mono">
                         <button
-                          onClick={() => copyWhatsAppInvite(gallery)}
-                          className="px-2.5 py-2 bg-foreground/[0.04] text-foreground border border-foreground/20 hover:bg-foreground/[0.08] transition-colors flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider"
-                          title="Copy ready-to-send WhatsApp invite"
+                          onClick={() => openWhatsAppModal(gallery)}
+                          className="px-2.5 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider font-semibold"
+                          title="Send passcode and gallery link to client on WhatsApp"
                         >
-                          {copiedKey === `wa_${gallery.slug}` ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-400" /> Invite Copied
-                            </>
-                          ) : (
-                            <>
-                              <MessageCircle className="w-3 h-3" /> WhatsApp
-                            </>
-                          )}
+                          <MessageCircle className="w-3.5 h-3.5" /> WhatsApp Client
                         </button>
 
                         <a
@@ -667,7 +743,7 @@ export default function UploadPage() {
                           className="px-2.5 py-2 bg-foreground text-background font-semibold hover:bg-foreground/90 transition-colors flex items-center justify-center gap-1.5 cursor-pointer uppercase tracking-wider text-center"
                           title="Download high-resolution ZIP of all photos"
                         >
-                          <Download className="w-3 h-3" /> Download .ZIP
+                          <Download className="w-3.5 h-3.5" /> Download .ZIP
                         </a>
                       </div>
                     </div>
@@ -725,7 +801,7 @@ export default function UploadPage() {
                     Drag & Drop Assets to Auto-Push to GitHub
                   </p>
                   <p className="text-[11px] font-mono text-foreground/50">
-                    Supports high-res JPG, PNG, WebP, AVIF, SVG (saved in <code>public/uploads/</code>)
+                    High-res JPG, PNG, WebP, SVG (saved in <code>public/uploads/</code>)
                   </p>
                 </div>
               </div>
@@ -807,6 +883,38 @@ export default function UploadPage() {
                 </div>
 
                 <form onSubmit={handleCreateGallery} className="space-y-6">
+                  {/* Select Past Client Helper Button */}
+                  {pastBookings.length > 0 && (
+                    <div className="p-3 bg-foreground/[0.03] border border-foreground/10 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-foreground/60 uppercase tracking-wider">
+                        <span>Quick-Fill from Past Shoots ({pastBookings.length} found):</span>
+                      </div>
+                      <select
+                        onChange={(e) => {
+                          const chosen = pastBookings.find((b) => b.id === e.target.value);
+                          if (chosen) {
+                            setClientTitle(`${chosen.name} - ${chosen.package_name}`);
+                            setCustomSlug(
+                              `${chosen.name}_${chosen.package_name}`
+                                .toLowerCase()
+                                .replace(/[^a-zA-Z0-9\s-_]/g, '')
+                                .trim()
+                                .replace(/\s+/g, '_')
+                            );
+                          }
+                        }}
+                        className="w-full bg-background border border-foreground/20 px-3 py-2 text-xs font-mono text-foreground outline-none cursor-pointer"
+                      >
+                        <option value="">-- Or choose a client from past bookings --</option>
+                        {pastBookings.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.phone}) — {b.package_name} ({b.date})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   {/* Client Info & Passcode Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -900,11 +1008,11 @@ export default function UploadPage() {
                         className="inline-flex items-center gap-2 px-4 py-2 bg-foreground/5 hover:bg-foreground/10 border border-foreground/20 text-xs font-mono uppercase tracking-wider text-foreground cursor-pointer transition-colors"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        Choose Photos / Add More
+                        Choose Photos / Add More (Auto-Converts to JPG)
                       </label>
                     </div>
 
-                    {/* Previews Grid - Strictly Non-Overlapping Thumbnails */}
+                    {/* Previews Grid - Non-Overlapping Thumbnails */}
                     {previews.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 border border-foreground/10 bg-foreground/[0.02] custom-scrollbar">
                         {previews.map((preview, index) => {
@@ -919,7 +1027,7 @@ export default function UploadPage() {
                                   : 'border-foreground/20 hover:border-foreground/50'
                               }`}
                             >
-                              {/* Centered bounded image strictly inside container */}
+                              {/* Centered bounded image */}
                               <div className="absolute inset-0 flex items-center justify-center p-1 overflow-hidden pointer-events-none">
                                 <img
                                   src={preview.url}
@@ -1025,6 +1133,193 @@ export default function UploadPage() {
                     </button>
                   </div>
                 </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* MODAL: WHATSAPP SHARE TO CLIENT */}
+        <AnimatePresence>
+          {whatsappGallery && (
+            <div className="fixed inset-0 z-50 bg-background/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-background border border-foreground/20 max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto custom-scrollbar"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-foreground/15 pb-4">
+                  <div className="flex items-center gap-2.5 text-emerald-400">
+                    <MessageCircle className="w-5 h-5" />
+                    <div>
+                      <h2 className="font-serif text-xl sm:text-2xl text-foreground font-medium">
+                        Send Gallery on WhatsApp
+                      </h2>
+                      <p className="text-[10px] font-mono text-foreground/50 uppercase tracking-widest">
+                        {whatsappGallery.clientInfo} · Passcode: {whatsappGallery.passcode}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setWhatsappGallery(null)}
+                    className="p-1.5 text-foreground/50 hover:text-foreground cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  {/* Step 1: Choose from Past Shoots Picker */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/70 flex items-center justify-between">
+                      <span>1. Select Client from Past Shoots</span>
+                      {selectedBooking && (
+                        <span className="text-emerald-400 normal-case font-mono text-[10px]">
+                          ✓ Linked to {selectedBooking.name}
+                        </span>
+                      )}
+                    </label>
+
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-foreground/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder="Search past clients by name, phone, or package..."
+                          value={bookingSearch}
+                          onChange={(e) => setBookingSearch(e.target.value)}
+                          className="w-full bg-background border border-foreground/20 pl-8 pr-3 py-2 text-xs font-mono text-foreground placeholder:text-foreground/30 outline-none focus:border-foreground/50"
+                        />
+                      </div>
+
+                      {/* Matching Past Shoots List */}
+                      <div className="max-h-40 overflow-y-auto border border-foreground/10 bg-foreground/[0.02] divide-y divide-foreground/5 custom-scrollbar">
+                        {filteredBookings.length > 0 ? (
+                          filteredBookings.map((b) => {
+                            const isChosen = selectedBooking?.id === b.id;
+                            return (
+                              <div
+                                key={b.id}
+                                onClick={() => {
+                                  setSelectedBooking(b);
+                                  setRecipientName(b.name);
+                                  setRecipientPhone(b.phone);
+                                }}
+                                className={`p-2.5 flex items-center justify-between text-xs font-mono cursor-pointer transition-colors ${
+                                  isChosen
+                                    ? 'bg-emerald-500/15 border-l-2 border-emerald-400'
+                                    : 'hover:bg-foreground/[0.04]'
+                                }`}
+                              >
+                                <div className="space-y-0.5">
+                                  <p className="font-semibold text-foreground flex items-center gap-2">
+                                    <User className="w-3 h-3 text-foreground/50" />
+                                    {b.name}
+                                  </p>
+                                  <p className="text-[10px] text-foreground/50 flex items-center gap-3">
+                                    <span className="flex items-center gap-1">
+                                      <Phone className="w-2.5 h-2.5" /> {b.phone}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-2.5 h-2.5" /> {b.date}
+                                    </span>
+                                    <span>{b.package_name}</span>
+                                  </p>
+                                </div>
+                                <span className="text-[10px] uppercase font-bold text-emerald-400">
+                                  {isChosen ? 'Selected' : 'Select'}
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="p-3 text-center text-xs font-mono text-foreground/40">
+                            No matching past shoots found. Enter recipient details below.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Recipient Phone & Name Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-1.5">
+                      <label className="block text-[9px] font-mono uppercase tracking-[0.2em] text-foreground/70">
+                        Client Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={recipientName}
+                        onChange={(e) => setRecipientName(e.target.value)}
+                        placeholder="e.g. Kwame Mensah"
+                        className="w-full bg-background border border-foreground/20 px-3 py-2 text-xs font-mono text-foreground outline-none focus:border-foreground/50"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[9px] font-mono uppercase tracking-[0.2em] text-foreground/70">
+                        Client WhatsApp Phone *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={recipientPhone}
+                        onChange={(e) => setRecipientPhone(e.target.value)}
+                        placeholder="e.g. 024 123 4567 or +233241234567"
+                        className="w-full bg-background border border-foreground/20 px-3 py-2 text-xs font-mono text-foreground font-semibold outline-none focus:border-foreground/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Step 3: Message Preview */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[9px] font-mono uppercase tracking-[0.2em] text-foreground/70">
+                      <span>Message Preview</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(generateWhatsAppMessage(), 'wa_modal_msg')}
+                        className="text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        {copiedKey === 'wa_modal_msg' ? (
+                          <>
+                            <Check className="w-3 h-3" /> Copied Text
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" /> Copy Message
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="bg-foreground/[0.04] border border-foreground/15 p-3.5 font-mono text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                      {generateWhatsAppMessage()}
+                    </div>
+                  </div>
+
+                  {/* Modal Actions */}
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-foreground/10">
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappGallery(null)}
+                      className="px-4 py-2.5 border border-foreground/20 text-foreground text-xs font-mono uppercase tracking-wider hover:bg-foreground/5 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendWhatsApp}
+                      disabled={!recipientPhone.trim()}
+                      className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-black font-mono text-xs uppercase tracking-wider font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Send on WhatsApp
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             </div>
           )}
