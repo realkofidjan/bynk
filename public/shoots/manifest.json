@@ -1,5 +1,23 @@
 [
   {
+    "slug": "MockClient",
+    "passcode": "123456",
+    "clientInfo": "Mock Client Shoot",
+    "coverPhoto": "https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/MockClient/mock-cover.jpg",
+    "images": [
+      {
+        "filename": "mock-cover.jpg",
+        "src": "https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/MockClient/mock-cover.jpg",
+        "alt": "Mock Client Shoot - mock-cover"
+      },
+      {
+        "filename": "mock-image-1.jpg",
+        "src": "https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/MockClient/mock-image-1.jpg",
+        "alt": "Mock Client Shoot - mock-image-1"
+      }
+    ]
+  },
+  {
     "slug": "avery_at_5",
     "passcode": "704453",
     "clientInfo": "Avery@5",
