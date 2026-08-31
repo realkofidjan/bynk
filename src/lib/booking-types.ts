@@ -194,10 +194,18 @@ export function getTierDurationMinutes(categoryId: string, tierName: string): nu
     return 90;
   }
 
-  // Studio Portraits & Location Portraits
+  // Location Portraits
+  if (c.includes('location')) {
+    if (t.includes('signature')) return 60; // 1.0 hr
+    if (t.includes('lux')) return 90; // 1.5 hrs
+    if (t.includes('platinum')) return 150; // 2.5 hrs
+    return 60;
+  }
+
+  // Studio Portraits (studio rental requires full hourly blocks)
   if (t.includes('signature')) return 60; // 1.0 hr
-  if (t.includes('lux')) return 90; // 1.5 hrs
-  if (t.includes('platinum')) return 150; // 2.5 hrs
+  if (t.includes('lux')) return 120; // 2.0 hrs
+  if (t.includes('platinum')) return 180; // 3.0 hrs
 
   return 60;
 }
@@ -247,10 +255,10 @@ export type AvailableSlot = {
   durationMinutes: number;
 };
 
-/** Get clean tier name without embedded time slot */
+/** Get clean tier name without embedded time slot or completion tag */
 export function getCleanTierName(tierStr: string): string {
   if (!tierStr) return '';
-  return tierStr.split(' @ ')[0].trim();
+  return tierStr.split(' @ ')[0].replace(/\[Completed.*?\]/g, '').trim();
 }
 
 /** Convert candidate slot time string ("09:30", "14:00", etc.) to valid DB constraint slot ('morning' | 'afternoon' | 'full_day') */

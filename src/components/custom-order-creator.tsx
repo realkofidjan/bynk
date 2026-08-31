@@ -31,6 +31,7 @@ import {
   formatTimeLabel,
   minutesToTime,
 } from '@/lib/booking-types';
+import { calculateGrossAmountInPesewas } from '@/lib/paystack';
 import { ChronoSelect } from '@/components/ui/chrono-select';
 import {
   Select,
@@ -72,41 +73,41 @@ export const RATE_CATEGORIES: RateCategory[] = [
     tiers: [
       {
         name: 'Signature',
-        priceNum: 1000,
+        priceNum: 1300,
         durationMinutes: 60,
         features: [
           'Professional studio setup',
-          'Guided posing & creative direction',
+          'Creative director & guided posing',
           '10 edited · 5 retouched images',
           'Private online gallery',
         ],
       },
       {
         name: 'Lux',
-        priceNum: 1500,
-        durationMinutes: 90,
+        priceNum: 2000,
+        durationMinutes: 120,
         features: [
           'Creative lighting variations',
-          'Guided posing & direction',
+          'Creative director & guided posing',
           '20 edited · 10 retouched images',
           '5 preview images within 48 hours',
         ],
       },
       {
         name: 'Platinum',
-        priceNum: 2200,
-        durationMinutes: 150,
+        priceNum: 2800,
+        durationMinutes: 180,
         features: [
           'Multiple lighting setups & background variation',
-          'Full creative direction',
+          'Creative director & guided posing',
           '30 edited · 15 retouched images',
           '5 priority images within 48 hours',
         ],
       },
       {
         name: 'Custom',
-        priceNum: 1500,
-        durationMinutes: 90,
+        priceNum: 2000,
+        durationMinutes: 120,
         features: ['Custom studio portraiture tailored to client specifications.'],
       },
     ],
@@ -117,39 +118,41 @@ export const RATE_CATEGORIES: RateCategory[] = [
     tiers: [
       {
         name: 'Signature',
-        priceNum: 1400,
+        priceNum: 1700,
         durationMinutes: 60,
         features: [
           '1 location · 1 outfit',
           'Professional portable lighting setup',
+          'Creative director & guided posing',
           '10 edited · 5 retouched images',
         ],
       },
       {
         name: 'Lux',
-        priceNum: 1900,
+        priceNum: 2200,
         durationMinutes: 90,
         features: [
           '1–2 locations · 2 outfits',
           'Professional portable lighting',
+          'Creative director & guided posing',
           '20 edited · 10 retouched images',
           '5 preview images within 48 hours',
         ],
       },
       {
         name: 'Platinum',
-        priceNum: 2800,
+        priceNum: 3100,
         durationMinutes: 150,
         features: [
           'Up to 2 locations · 3 outfits',
-          'Full creative direction & multiple setups',
+          'Creative director & multiple setups',
           '30 edited · 15 retouched images',
           '5 priority images within 48 hours',
         ],
       },
       {
         name: 'Custom',
-        priceNum: 2000,
+        priceNum: 2200,
         durationMinutes: 90,
         features: ['Custom location shoot with tailored requirements.'],
       },
@@ -161,35 +164,38 @@ export const RATE_CATEGORIES: RateCategory[] = [
     tiers: [
       {
         name: 'Signature',
-        priceNum: 3800,
+        priceNum: 4100,
         durationMinutes: 360,
         fullDay: true,
         features: [
           'Up to 6 hours · 1 photographer',
           'Getting-ready & ceremony coverage',
+          'Creative director & guided posing',
           '250+ edited · 20 retouched images',
         ],
       },
       {
         name: 'Lux',
-        priceNum: 5500,
+        priceNum: 5800,
         durationMinutes: 480,
         fullDay: true,
         features: [
           'Up to 8 hours · 1 lead photographer',
           'Full ceremony & reception coverage',
+          'Creative director & guided posing',
           '350+ edited · 35 retouched images',
           'Sneak-peek collection within 72 hours',
         ],
       },
       {
         name: 'Platinum',
-        priceNum: 7500,
+        priceNum: 7800,
         durationMinutes: 600,
         fullDay: true,
         features: [
           'Up to 10 hours · 2 photographers',
           'Full wedding coverage & portraits',
+          'Creative director & guided posing',
           '500+ edited · 50 retouched images',
           '20-page premium album + framed print',
         ],
@@ -199,7 +205,7 @@ export const RATE_CATEGORIES: RateCategory[] = [
         priceNum: 6000,
         durationMinutes: 480,
         fullDay: true,
-        features: ['Custom wedding package.'],
+        features: ['Custom wedding package with creative direction.'],
       },
     ],
   },
@@ -327,7 +333,7 @@ export default function CustomOrderCreator({
   const [category, setCategory] = useState<string>('portraits');
   const [selectedTier, setSelectedTier] = useState<string>('Signature');
   const [packageTitle, setPackageTitle] = useState('Studio Portraits — Signature');
-  const [basePackagePrice, setBasePackagePrice] = useState<number>(1000);
+  const [basePackagePrice, setBasePackagePrice] = useState<number>(1300);
   
   // Default to tomorrow's date
   const tomorrow = new Date();
@@ -340,7 +346,7 @@ export default function CustomOrderCreator({
   const [isCustomTime, setIsCustomTime] = useState(false);
   const [customTimeInput, setCustomTimeInput] = useState('11:00 AM – 2:00 PM');
   const [fullDay, setFullDay] = useState(false);
-  const [notes, setNotes] = useState('Professional studio setup\n• Guided posing & creative direction\n• 10 edited · 5 retouched images\n• Private online gallery');
+  const [notes, setNotes] = useState('Professional studio setup\n• Creative director & guided posing\n• 10 edited · 5 retouched images\n• Private online gallery');
 
   // Add-ons & Custom Line Items
   const [selectedStandardAddons, setSelectedStandardAddons] = useState<string[]>([]);
@@ -365,7 +371,7 @@ export default function CustomOrderCreator({
   const totalPrice = totalNum;
 
   const [paymentOption, setPaymentOption] = useState<'deposit' | 'full' | 'paid_offline'>('deposit');
-  const [customDepositAmount, setCustomDepositAmount] = useState<number | ''>(500);
+  const [customDepositAmount, setCustomDepositAmount] = useState<number | ''>(650);
   const [isCustomDepositInput, setIsCustomDepositInput] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
 
@@ -509,6 +515,7 @@ export default function CustomOrderCreator({
       : calculatedDepositDefault;
 
   const remainingBalanceNum = Math.max(0, totalNum - depositNum);
+  const { grossGhs: depositGrossGhs, feeGhs: depositFeeGhs } = calculateGrossAmountInPesewas(depositNum);
 
   // Submit Order Creation
   const handleSubmit = async (e: React.FormEvent) => {
@@ -596,12 +603,12 @@ export default function CustomOrderCreator({
     setCategory('portraits');
     setSelectedTier('Signature');
     setPackageTitle('Studio Portraits — Signature');
-    setBasePackagePrice(1000);
+    setBasePackagePrice(1300);
     setTotalPriceOverride(null);
-    setNotes('Professional studio setup\n• Guided posing & creative direction\n• 10 edited · 5 retouched images\n• Private online gallery');
+    setNotes('Professional studio setup\n• Creative director & guided posing\n• 10 edited · 5 retouched images\n• Private online gallery');
     setSelectedStandardAddons([]);
     setCustomAddons([]);
-    setCustomDepositAmount(500);
+    setCustomDepositAmount(650);
     setIsCustomDepositInput(false);
     setPaymentOption('deposit');
   };
@@ -615,10 +622,10 @@ export default function CustomOrderCreator({
     let text = `Hi ${name},\n\nYour custom photography session for *${date}* (*${packageTitle}*) has been prepared by BYNK Photography.\n\n`;
     text += `• Total Session Fee: GHS ${totalNum.toLocaleString()}\n`;
     if (paymentOption === 'deposit') {
-      text += `• Deposit Due Now: GHS ${depositNum.toLocaleString()}\n`;
+      text += `• Deposit Due Now: GHS ${depositNum.toLocaleString()} (+ 1.95% payment processing fee)\n`;
       text += `• Remaining Balance: GHS ${remainingBalanceNum.toLocaleString()}\n`;
     } else if (paymentOption === 'full') {
-      text += `• Full Payment: GHS ${totalNum.toLocaleString()}\n`;
+      text += `• Full Payment: GHS ${totalNum.toLocaleString()} (+ 1.95% payment processing fee)\n`;
     } else {
       text += `• Status: Confirmed (Paid Offline)\n`;
     }
@@ -1315,30 +1322,36 @@ export default function CustomOrderCreator({
               )}
 
               {/* Live Financial Summary Banner */}
-              <div className="border border-foreground/20 bg-foreground/[0.03] p-4 flex items-center justify-around text-center">
+              <div className="border border-foreground/20 bg-foreground/[0.03] p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.15em] text-foreground/40 block mb-1">
                     Total Session
                   </span>
-                  <span className="text-base sm:text-lg font-serif text-foreground font-semibold">
+                  <span className="text-sm sm:text-base font-serif text-foreground font-semibold">
                     GHS {totalNum.toLocaleString()}
                   </span>
                 </div>
-                <div className="text-foreground/20">|</div>
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.15em] text-foreground/40 block mb-1">
-                    {paymentOption === 'deposit' ? 'Charged on Checkout' : paymentOption === 'full' ? 'Charged on Checkout' : 'Marked Paid'}
+                    Net Deposit (To BYNK)
                   </span>
-                  <span className="text-base sm:text-lg font-serif text-emerald-400 font-semibold">
+                  <span className="text-sm sm:text-base font-serif text-emerald-400 font-semibold">
                     GHS {depositNum.toLocaleString()}
                   </span>
                 </div>
-                <div className="text-foreground/20">|</div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-[0.15em] text-foreground/40 block mb-1">
+                    Client Paystack (+1.95%)
+                  </span>
+                  <span className="text-sm sm:text-base font-serif text-foreground font-bold">
+                    GHS {depositGrossGhs.toFixed(2)}
+                  </span>
+                </div>
                 <div>
                   <span className="text-[9px] uppercase tracking-[0.15em] text-foreground/40 block mb-1">
                     Remaining Balance Due
                   </span>
-                  <span className="text-base sm:text-lg font-serif text-foreground/70">
+                  <span className="text-sm sm:text-base font-serif text-foreground/70">
                     GHS {remainingBalanceNum.toLocaleString()}
                   </span>
                 </div>

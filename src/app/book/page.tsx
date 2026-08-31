@@ -22,6 +22,10 @@ import {
   calculateBookingFinancials,
 } from '@/lib/booking-types';
 import {
+  calculateGrossAmountInPesewas,
+  PAYSTACK_FEE_PERCENT,
+} from '@/lib/paystack';
+import {
   createIcsContent,
   createGoogleCalendarUrl,
   downloadIcsFile,
@@ -57,12 +61,12 @@ const categories: Category[] = [
     tiers: [
       {
         name: 'Signature',
-        price: 'GHS 1,000',
+        price: 'GHS 1,300',
         duration: 'Up to 1 hour · 1 outfit',
         features: [
           'Individual portrait session',
           'Professional studio setup',
-          'Guided posing & creative direction',
+          'Creative director & guided posing',
           '10 edited · 5 retouched images',
           'Private online gallery',
           'High-resolution digital delivery',
@@ -71,12 +75,12 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 1,500',
-        duration: 'Up to 1.5 hours · 2 outfits',
+        price: 'GHS 2,000',
+        duration: 'Up to 2 hours · 2 outfits',
         features: [
           'Individual, couple or small-group session',
           'Creative lighting variations',
-          'Guided posing & direction',
+          'Creative director & guided posing',
           '20 edited · 10 retouched images',
           'Private online gallery',
           '5 preview images within 48 hours',
@@ -85,12 +89,12 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 2,200',
-        duration: 'Up to 2.5 hours · 3 outfits',
+        price: 'GHS 2,800',
+        duration: 'Up to 3 hours · 3 outfits',
         features: [
           'Individual, couple or family session',
           'Multiple lighting setups & background variation',
-          'Creative direction & guided posing',
+          'Creative director & guided posing',
           '30 edited · 15 retouched images',
           'Private online gallery',
           '5 priority images within 48 hours',
@@ -107,12 +111,12 @@ const categories: Category[] = [
     tiers: [
       {
         name: 'Signature',
-        price: 'GHS 1,400',
+        price: 'GHS 1,700',
         duration: 'Up to 1 hour · 1 location · 1 outfit',
         features: [
           'Individual portrait session',
           'Professional portable lighting setup',
-          'Guided posing & creative direction',
+          'Creative director & guided posing',
           '10 edited · 5 retouched images',
           'Private online gallery',
           'High-resolution digital delivery',
@@ -121,13 +125,13 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 1,900',
+        price: 'GHS 2,200',
         duration: 'Up to 1.5 hours · 1–2 locations · 2 outfits',
         bestValue: true,
         features: [
           '1–2 locations within close proximity',
           'Professional portable lighting setup',
-          'Guided posing & creative direction',
+          'Creative director & guided posing',
           '20 edited · 10 retouched images',
           'Private online gallery',
           '5 preview images within 48 hours',
@@ -136,7 +140,7 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 2,800',
+        price: 'GHS 3,100',
         duration: 'Up to 2.5 hours · Up to 2 locations · 3 outfits',
         features: [
           'Up to 2 locations & multiple lighting setups',
@@ -158,11 +162,12 @@ const categories: Category[] = [
     tiers: [
       {
         name: 'Signature',
-        price: 'GHS 3,800',
+        price: 'GHS 4,100',
         duration: 'Up to 6 hours · 1 photographer',
         features: [
           'Getting-ready & ceremony coverage',
           'Couple & family portraits',
+          'Creative director & guided posing',
           'Reception & candid coverage',
           '250+ edited · 20 retouched images',
           'Private online gallery',
@@ -172,12 +177,13 @@ const categories: Category[] = [
       },
       {
         name: 'Lux',
-        price: 'GHS 5,500',
+        price: 'GHS 5,800',
         duration: 'Up to 8 hours · 1 lead photographer',
         bestValue: true,
         features: [
           'Full ceremony & reception coverage',
           'Getting-ready & bridal party portraits',
+          'Creative director & guided posing',
           'Details & decor photography',
           '350+ edited · 35 retouched images',
           'Private online gallery',
@@ -187,11 +193,12 @@ const categories: Category[] = [
       },
       {
         name: 'Platinum',
-        price: 'GHS 7,500',
+        price: 'GHS 7,800',
         duration: 'Up to 10 hours · 2 photographers',
         features: [
           'Full traditional or white wedding coverage',
           'Couple, bridal party & family portraits',
+          'Creative director & guided posing',
           'Candid & documentary coverage',
           '500+ edited · 50 retouched images',
           '20-page premium album + framed print',
@@ -313,7 +320,7 @@ const termsAndConditions = [
     number: '01',
     title: 'Booking & Deposit',
     content:
-      'A 50% non-refundable deposit of the base package price is required to secure your date. Optional add-ons are billed separately and paid 100% upfront at the time of booking — they do not count toward the 50% package deposit. A date is confirmed once payment has been received. The remaining 50% balance of the base package must be settled before photography coverage begins.',
+      'A 50% non-refundable deposit of the base package price is required to secure your date. Optional add-ons are billed separately and paid 100% upfront at the time of booking — they do not count toward the 50% package deposit. A date is confirmed once payment has been received. Standard electronic payment processing charges (Paystack 1.95%) are incurred at checkout. The remaining 50% balance of the base package must be settled before photography coverage begins.',
   },
   {
     number: '02',
@@ -620,6 +627,7 @@ function BookingFormLightbox({
   const baseDepositGhs = Math.round(basePriceNum / 2);
   const depositGhs = baseDepositGhs + addOnsTotal;
   const remainingBalanceGhs = basePriceNum - baseDepositGhs;
+  const { grossGhs: grossDepositGhs, feeGhs: depositFeeGhs } = calculateGrossAmountInPesewas(depositGhs);
 
   const toggleAddOn = (id: string) => {
     setSelectedAddOnIds((prev) =>
@@ -866,16 +874,24 @@ function BookingFormLightbox({
                 </div>
 
                 {/* 50% Deposit highlight */}
-                <div className="bg-foreground/[0.04] border border-foreground/20 p-2.5 space-y-1 mt-2">
+                <div className="bg-foreground/[0.04] border border-foreground/20 p-2.5 space-y-1.5 mt-2">
                   <div className="flex items-baseline justify-between">
                     <span className="text-foreground text-[10px] font-mono uppercase tracking-[0.2em] font-semibold">
                       50% Deposit Due Now
                     </span>
-                    <span className="text-foreground font-serif text-base font-bold">
+                    <span className="text-foreground font-serif text-sm font-semibold">
                       GHS {depositGhs.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/50 pt-1 border-t border-foreground/10">
+                  <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/50">
+                    <span>Payment Processing Fee (1.95%):</span>
+                    <span>+ GHS {depositFeeGhs.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-[11px] font-mono text-foreground font-bold pt-1 border-t border-foreground/10">
+                    <span className="uppercase tracking-wider">Total at Paystack Checkout:</span>
+                    <span>GHS {grossDepositGhs.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/40 pt-1 border-t border-foreground/10">
                     <span>Balance on Shoot Date:</span>
                     <span>GHS {remainingBalanceGhs.toLocaleString()}</span>
                   </div>
@@ -1084,7 +1100,7 @@ function BookingFormLightbox({
                 >
                   {submitting
                     ? 'Connecting to Paystack...'
-                    : `Pay 50% Deposit (GHS ${depositGhs.toLocaleString()})`}
+                    : `Pay Deposit (GHS ${grossDepositGhs.toFixed(2)})`}
                 </button>
 
                 <p className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">

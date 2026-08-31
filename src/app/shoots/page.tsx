@@ -22,6 +22,8 @@ import {
   ExternalLink,
   Plus,
   Sparkles,
+  Banknote,
+  CreditCard,
 } from 'lucide-react';
 import {
   SLOT_LABELS,
@@ -32,15 +34,16 @@ import {
   getBookingStartTime,
   getBookingEndTime,
   formatTimeLabel,
+  toDateKey,
 } from '@/lib/booking-types';
 import CustomOrderCreator from '@/components/custom-order-creator';
 
 export default function ShootsPage() {
+  const todayStr = toDateKey(new Date());
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'custom-order'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
-
 
   const [shoots, setShoots] = useState<Booking[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -64,6 +67,13 @@ export default function ShootsPage() {
     phone: string;
     shootDate: string;
   } | null>(null);
+
+  // Complete shoot with offline payment state
+  const [completingShoot, setCompletingShoot] = useState<Booking | null>(null);
+  const [settlementType, setSettlementType] = useState<'balance' | 'full' | 'none'>('balance');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'momo' | 'bank_transfer'>('cash');
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [completingLoading, setCompletingLoading] = useState(false);
 
   // Detailed view & refund tracking state
   const [selectedBookingDetails, setSelectedBookingDetails] = useState<Booking | null>(null);
@@ -213,7 +223,7 @@ export default function ShootsPage() {
         if (paymentType === 'full') typeDesc = 'Full Payment (100%)';
         else if (paymentType === 'deposit') typeDesc = '50% Deposit';
 
-        const waText = `Hi ${shoot.name}, here is your ${typeDesc} link for your photography shoot on ${shoot.date} (${shoot.tier}).\n\nAmount Due: GHS ${chargeAmount.toLocaleString()}\nPay securely via Paystack:\n${paystackUrl}\n\nThank you — BYNK Photography`;
+        const waText = `Hi ${shoot.name}, here is your ${typeDesc} link for your photography shoot on ${shoot.date} (${shoot.tier}).\n\nAmount Due: GHS ${chargeAmount.toLocaleString()} (+ 1.95% payment processing fee)\nPay securely via Paystack:\n${paystackUrl}\n\nThank you — BYNK Photography`;
 
         window.open(
           `https://wa.me/${shoot.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waText)}`,
@@ -276,23 +286,59 @@ export default function ShootsPage() {
     }
   };
 
-  const handleMarkCompleted = async (bookingId: string) => {
+  const handleOpenCompleteModal = (shoot: Booking) => {
+    const { remainingBalance } = calculateBookingFinancials({
+      total_price: shoot.total_price || 0,
+      add_ons: shoot.add_ons || [],
+    });
+    setCompletingShoot(shoot);
+    setSettlementType(remainingBalance > 0 ? 'balance' : 'none');
+    setPaymentMethod('cash');
+    setCompletionNotes('');
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!completingShoot) return;
+    setCompletingLoading(true);
+
     try {
+      const { remainingBalance } = calculateBookingFinancials({
+        total_price: completingShoot.total_price || 0,
+        add_ons: completingShoot.add_ons || [],
+      });
+
+      const amountPaid =
+        settlementType === 'balance'
+          ? remainingBalance
+          : settlementType === 'full'
+          ? Number(completingShoot.total_price || 0)
+          : 0;
+
       const res = await fetch('/api/shoots/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId }),
+        body: JSON.stringify({
+          bookingId: completingShoot.id,
+          settlementType,
+          paymentMethod: settlementType === 'none' ? 'none' : paymentMethod,
+          amountPaid,
+          notes: completionNotes,
+        }),
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         alert(data.error || 'Failed to mark shoot as completed');
       } else {
+        setCompletingShoot(null);
+        setCompletionNotes('');
         await fetchShoots();
       }
     } catch (err: any) {
       console.error('Mark completed error:', err);
       alert('Error updating shoot status');
+    } finally {
+      setCompletingLoading(false);
     }
   };
 
@@ -400,6 +446,12 @@ export default function ShootsPage() {
         ) : (
           <div className="flex-1 overflow-y-auto pr-2 space-y-4 min-h-0 custom-scrollbar pb-4">
             {shoots.map((shoot) => {
+              const isCompleted =
+                activeTab === 'completed' ||
+                shoot.date < todayStr ||
+                (shoot.tier && shoot.tier.includes('[Completed]')) ||
+                shoot.status === 'completed';
+
               const { depositPaid, remainingBalance } = calculateBookingFinancials({
                 total_price: shoot.total_price || 0,
                 add_ons: shoot.add_ons || [],
@@ -410,10 +462,18 @@ export default function ShootsPage() {
                 ? 'Full Day'
                 : SLOT_LABELS[shoot.slot as keyof typeof SLOT_LABELS] || shoot.slot;
 
+              const cleanTier = getCleanTierName(shoot.tier);
+              const completionNote = shoot.add_ons?.find((a) => String(a).startsWith('Completed:'));
+              const displayAddOns = (shoot.add_ons || []).filter((a) => !String(a).startsWith('Completed:'));
+
               return (
                 <div
                   key={shoot.id}
-                  className="bg-background border border-foreground/20 p-5 sm:p-6 transition-colors hover:border-foreground/40 space-y-4"
+                  className={`bg-background border p-5 sm:p-6 transition-colors space-y-4 ${
+                    isCompleted
+                      ? 'border-emerald-500/25 hover:border-emerald-500/40 bg-emerald-500/[0.01]'
+                      : 'border-foreground/20 hover:border-foreground/40'
+                  }`}
                 >
                   {/* Top Bar: Date, Slot & Status */}
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-foreground/10 pb-3">
@@ -430,17 +490,24 @@ export default function ShootsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 border ${
-                          shoot.status === 'confirmed'
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : shoot.status === 'pending'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                              : 'bg-foreground/10 text-foreground/50 border-foreground/20'
-                        }`}
-                      >
-                        {shoot.status}
-                      </span>
+                      {isCompleted ? (
+                        <span className="text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 border bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Completed
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 border ${
+                            shoot.status === 'confirmed'
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : shoot.status === 'pending'
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                : 'bg-foreground/10 text-foreground/50 border-foreground/20'
+                          }`}
+                        >
+                          {shoot.status}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -467,14 +534,20 @@ export default function ShootsPage() {
                     <div className="space-y-1.5">
                       <p className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">Package Details</p>
                       <p className="text-xs text-foreground font-medium">
-                        {shoot.category} — {shoot.tier}
+                        {shoot.category} — {cleanTier}
                       </p>
-                      {shoot.add_ons && shoot.add_ons.length > 0 ? (
+                      {displayAddOns && displayAddOns.length > 0 ? (
                         <p className="text-[10px] text-foreground/60">
-                          Add-ons: {shoot.add_ons.join(', ')}
+                          Add-ons: {displayAddOns.map(formatAddOnName).join(', ')}
                         </p>
                       ) : (
                         <p className="text-[10px] text-foreground/30">No add-ons selected</p>
+                      )}
+                      {completionNote && (
+                        <div className="pt-1 text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                          <Check className="w-3 h-3 shrink-0" />
+                          <span>{completionNote}</span>
+                        </div>
                       )}
                     </div>
 
@@ -485,30 +558,61 @@ export default function ShootsPage() {
                         <span className="text-foreground/60">Total Package:</span>
                         <span className="text-foreground font-medium">GHS {shoot.total_price.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-foreground/60">Deposit Paid:</span>
-                        <span className="text-emerald-400 font-medium">GHS {depositPaid.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] pt-1 border-t border-foreground/10 font-semibold">
-                        <span className="text-foreground">Balance Due:</span>
-                        <span className={remainingBalance > 0 ? 'text-amber-400' : 'text-foreground/50'}>
-                          GHS {remainingBalance.toLocaleString()}
-                        </span>
-                      </div>
+                      {isCompleted ? (
+                        <>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-foreground/60">Settlement:</span>
+                            <span className="text-emerald-400 font-medium">Paid in Full</span>
+                          </div>
+                          <div className="flex justify-between text-[11px] pt-1 border-t border-foreground/10 font-semibold">
+                            <span className="text-foreground">Balance Due:</span>
+                            <span className="text-emerald-400 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              GHS 0 (Settled)
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-foreground/60">Deposit Paid:</span>
+                            <span className="text-emerald-400 font-medium">GHS {depositPaid.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-[11px] pt-1 border-t border-foreground/10 font-semibold">
+                            <span className="text-foreground">Balance Due:</span>
+                            <span className={remainingBalance > 0 ? 'text-amber-400' : 'text-foreground/50'}>
+                              GHS {remainingBalance.toLocaleString()}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  {/* Bottom Actions Row: View Booking Details and Send Payment Links */}
+                  {/* Bottom Actions Row: View Booking Details, Complete Shoot, and Send Payment Links */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-foreground/10">
-                    <button
-                      onClick={() => setSelectedBookingDetails(shoot)}
-                      className="text-[10px] uppercase tracking-[0.15em] text-foreground hover:text-foreground/80 flex items-center gap-1.5 transition-colors cursor-pointer border border-foreground/20 px-3 py-1.5 bg-foreground/[0.03] hover:bg-foreground/[0.08]"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-foreground/70" />
-                      View Booking Details
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => setSelectedBookingDetails(shoot)}
+                        className="text-[10px] uppercase tracking-[0.15em] text-foreground hover:text-foreground/80 flex items-center gap-1.5 transition-colors cursor-pointer border border-foreground/20 px-3 py-1.5 bg-foreground/[0.03] hover:bg-foreground/[0.08]"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-foreground/70" />
+                        View Booking Details
+                      </button>
 
-                    {activeTab === 'upcoming' && shoot.status !== 'cancelled' && (
+                      {!isCompleted && shoot.status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCompleteModal(shoot)}
+                          className="text-[10px] uppercase tracking-[0.15em] text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer border border-emerald-500/30 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          Complete Shoot
+                        </button>
+                      )}
+                    </div>
+
+                    {!isCompleted && activeTab === 'upcoming' && shoot.status !== 'cancelled' && (
                       <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
@@ -613,6 +717,214 @@ export default function ShootsPage() {
           </div>
         )}
       </div>
+
+      {/* Complete Shoot with Offline Payment Modal */}
+      <AnimatePresence>
+        {completingShoot && (() => {
+          const { depositPaid, remainingBalance } = calculateBookingFinancials({
+            total_price: completingShoot.total_price || 0,
+            add_ons: completingShoot.add_ons || [],
+          });
+          const [y, m, d] = completingShoot.date.split('-').map(Number);
+          const formattedDate = new Date(y, m - 1, d).toDateString();
+          const effectiveAmountPaid =
+            settlementType === 'balance'
+              ? remainingBalance
+              : settlementType === 'full'
+              ? (completingShoot.total_price || 0)
+              : 0;
+
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
+              onClick={() => !completingLoading && setCompletingShoot(null)}
+            >
+              <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                className="relative w-full h-full sm:h-auto sm:max-w-lg max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-emerald-500/30 p-6 rounded-none space-y-5 shadow-2xl overflow-y-auto flex flex-col justify-center"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-foreground/10 pb-3">
+                  <div className="flex items-center gap-2.5 text-emerald-400">
+                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.2em] text-foreground/40 font-mono">
+                        BYNK Photography · Status Update
+                      </p>
+                      <h3 className="text-base font-serif text-foreground font-semibold">
+                        Complete Shoot &amp; Record Payment
+                      </h3>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => !completingLoading && setCompletingShoot(null)}
+                    className="text-foreground/40 hover:text-foreground p-1 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Shoot summary */}
+                <div className="bg-foreground/[0.03] border border-foreground/10 p-3.5 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-foreground/50">Client:</span>
+                    <span className="text-foreground font-semibold">{completingShoot.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-foreground/50">Session:</span>
+                    <span className="text-foreground">{completingShoot.category} — {completingShoot.tier}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-foreground/50">Shoot Date:</span>
+                    <span className="text-foreground">{formattedDate}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-foreground/10 font-mono text-[11px]">
+                    <span className="text-foreground/60">Total: GHS {Number(completingShoot.total_price || 0).toLocaleString()}</span>
+                    <span className="text-emerald-400">Deposit: GHS {depositPaid.toLocaleString()}</span>
+                    <span className={remainingBalance > 0 ? 'text-amber-400 font-bold' : 'text-foreground/50'}>
+                      Balance: GHS {remainingBalance.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Payment Settlement Mode */}
+                <div className="space-y-2">
+                  <label className="block text-[9px] uppercase tracking-[0.2em] text-foreground/50 font-medium">
+                    Offline Payment Settlement Mode
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSettlementType('balance')}
+                      className={`p-2.5 text-center border text-[10px] transition-all cursor-pointer ${
+                        settlementType === 'balance'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-semibold'
+                          : 'bg-foreground/[0.02] text-foreground/60 border-foreground/20 hover:border-foreground/40'
+                      }`}
+                    >
+                      <span className="block font-bold">Remaining Balance</span>
+                      <span className="text-[9px] opacity-80">GHS {remainingBalance.toLocaleString()}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSettlementType('full')}
+                      className={`p-2.5 text-center border text-[10px] transition-all cursor-pointer ${
+                        settlementType === 'full'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-semibold'
+                          : 'bg-foreground/[0.02] text-foreground/60 border-foreground/20 hover:border-foreground/40'
+                      }`}
+                    >
+                      <span className="block font-bold">Full Shoot Fee</span>
+                      <span className="text-[9px] opacity-80">GHS {Number(completingShoot.total_price || 0).toLocaleString()}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSettlementType('none')}
+                      className={`p-2.5 text-center border text-[10px] transition-all cursor-pointer ${
+                        settlementType === 'none'
+                          ? 'bg-foreground/20 text-foreground border-foreground font-semibold'
+                          : 'bg-foreground/[0.02] text-foreground/60 border-foreground/20 hover:border-foreground/40'
+                      }`}
+                    >
+                      <span className="block font-bold">Already Settled</span>
+                      <span className="text-[9px] opacity-80">No extra payment</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Payment Method Selector (if settling offline) */}
+                {settlementType !== 'none' && (
+                  <div className="space-y-2">
+                    <label className="block text-[9px] uppercase tracking-[0.2em] text-foreground/50 font-medium">
+                      Offline Payment Method
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'cash', label: 'Cash', icon: Banknote },
+                        { id: 'momo', label: 'Mobile Money', icon: Phone },
+                        { id: 'bank_transfer', label: 'Bank Transfer', icon: CreditCard },
+                      ].map((m) => {
+                        const Icon = m.icon;
+                        const isSel = paymentMethod === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setPaymentMethod(m.id as any)}
+                            className={`p-2 border text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                              isSel
+                                ? 'bg-foreground text-background border-foreground font-bold'
+                                : 'bg-foreground/[0.02] text-foreground/70 border-foreground/20 hover:border-foreground/40'
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional notes */}
+                <div className="space-y-1.5">
+                  <label className="block text-[9px] uppercase tracking-[0.2em] text-foreground/50 font-medium">
+                    Completion Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={completionNotes}
+                    onChange={(e) => setCompletionNotes(e.target.value)}
+                    placeholder="e.g. Paid cash on location, high-res gallery delivered"
+                    className="w-full bg-foreground/[0.02] border border-foreground/20 px-3 py-2 text-xs font-mono focus:outline-none focus:border-foreground"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-2 border-t border-foreground/10">
+                  <button
+                    type="button"
+                    disabled={completingLoading}
+                    onClick={() => setCompletingShoot(null)}
+                    className="px-4 py-2 border border-foreground/20 text-[10px] uppercase tracking-wider hover:bg-foreground/5 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={completingLoading}
+                    onClick={handleConfirmComplete}
+                    className="px-5 py-2 bg-emerald-600 text-white text-[10px] uppercase tracking-widest font-semibold hover:bg-emerald-500 transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    {completingLoading ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Complete Shoot (GHS {effectiveAmountPaid.toLocaleString()})</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Cancellation Confirmation Modal */}
       <AnimatePresence>
@@ -788,17 +1100,31 @@ export default function ShootsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 border ${
-                      selectedBookingDetails.status === 'confirmed'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                        : selectedBookingDetails.status === 'pending'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                          : 'bg-foreground/10 text-foreground/50 border-foreground/20'
-                    }`}
-                  >
-                    {selectedBookingDetails.status}
-                  </span>
+                  {(() => {
+                    const isModalShootCompleted =
+                      selectedBookingDetails.date < todayStr ||
+                      (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
+                      selectedBookingDetails.status === 'completed';
+
+                    return isModalShootCompleted ? (
+                      <span className="text-[9px] uppercase tracking-[0.15em] px-2.5 py-0.5 border bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Completed &amp; Settled
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 border ${
+                          selectedBookingDetails.status === 'confirmed'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : selectedBookingDetails.status === 'pending'
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                              : 'bg-foreground/10 text-foreground/50 border-foreground/20'
+                        }`}
+                      >
+                        {selectedBookingDetails.status}
+                      </span>
+                    );
+                  })()}
 
                   <button
                     onClick={() => setSelectedBookingDetails(null)}
@@ -850,6 +1176,10 @@ export default function ShootsPage() {
                     total_price: selectedBookingDetails.total_price || 0,
                     add_ons: selectedBookingDetails.add_ons || [],
                   });
+                  const isModalShootCompleted =
+                    selectedBookingDetails.date < todayStr ||
+                    (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
+                    selectedBookingDetails.status === 'completed';
 
                   return (
                     <div className="space-y-2 bg-foreground/[0.03] border border-foreground/15 p-3 flex flex-col justify-between">
@@ -868,21 +1198,73 @@ export default function ShootsPage() {
                             <span>Total Shoot Price:</span>
                             <span>GHS {selectedBookingDetails.total_price.toLocaleString()}</span>
                           </div>
-                          <div className="flex justify-between text-emerald-400 font-medium">
-                            <span>Deposit Paid Upfront:</span>
-                            <span>GHS {fin.depositPaid.toLocaleString()}</span>
-                          </div>
+                          {isModalShootCompleted ? (
+                            <div className="flex justify-between text-emerald-400 font-medium">
+                              <span>Total Settled &amp; Paid:</span>
+                              <span>GHS {Number(selectedBookingDetails.total_price || 0).toLocaleString()}</span>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between text-emerald-400 font-medium">
+                              <span>Deposit Paid Upfront:</span>
+                              <span>GHS {fin.depositPaid.toLocaleString()}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center text-amber-400 font-semibold pt-2 border-t border-foreground/15 text-xs">
-                        <span>Balance Due on Shoot:</span>
-                        <span>GHS {fin.remainingBalance.toLocaleString()}</span>
-                      </div>
+                      {isModalShootCompleted ? (
+                        <div className="flex justify-between items-center text-emerald-400 font-semibold pt-2 border-t border-emerald-500/20 text-xs">
+                          <span>Balance Due:</span>
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            GHS 0.00 (Fully Settled)
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center text-amber-400 font-semibold pt-2 border-t border-foreground/15 text-xs">
+                          <span>Balance Due on Shoot:</span>
+                          <span>GHS {fin.remainingBalance.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
               </div>
+
+              {/* Completed Shoot Banner */}
+              {(() => {
+                const isModalShootCompleted =
+                  selectedBookingDetails.date < todayStr ||
+                  (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
+                  selectedBookingDetails.status === 'completed';
+
+                if (!isModalShootCompleted) return null;
+
+                const completionNote = selectedBookingDetails.add_ons?.find((a) => String(a).startsWith('Completed:'));
+
+                return (
+                  <div className="bg-emerald-500/[0.08] border border-emerald-500/30 p-3.5 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between text-emerald-400 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Shoot Completed &amp; Financials Settled
+                      </span>
+                      <span className="text-[9px] uppercase tracking-wider bg-emerald-500/20 px-2 py-0.5 border border-emerald-500/40">
+                        Archived
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-foreground/70 leading-relaxed">
+                      This photography session is marked complete. All outstanding balances have been settled offline or upfront.
+                    </p>
+                    {completionNote && (
+                      <div className="pt-1.5 mt-1 border-t border-emerald-500/20 text-[11px] text-emerald-300 font-mono flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 shrink-0" />
+                        <span>{completionNote}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Add-ons & Refund Banner Section */}
               {(() => {
@@ -897,6 +1279,7 @@ export default function ShootsPage() {
                 const diffDays = Math.ceil((shootDateObj.getTime() - todayObj.getTime()) / (1000 * 60 * 60 * 24));
                 const isRefundEligible = diffDays >= 2;
                 const isRefunded = refundedShootIds.includes(selectedBookingDetails.id);
+                const displayAddOns = (selectedBookingDetails.add_ons || []).filter((a) => !String(a).startsWith('Completed:'));
 
                 return (
                   <div className="space-y-2 text-xs">
@@ -904,14 +1287,14 @@ export default function ShootsPage() {
                     <div className="flex items-center justify-between bg-foreground/[0.02] border border-foreground/10 px-3 py-2 text-[11px]">
                       <span className="text-foreground/50 uppercase text-[9px] tracking-wider font-semibold">Selected Add-ons:</span>
                       <span className="text-foreground/80 font-medium">
-                        {selectedBookingDetails.add_ons && selectedBookingDetails.add_ons.length > 0
-                          ? selectedBookingDetails.add_ons.map(formatAddOnName).join(', ')
+                        {displayAddOns && displayAddOns.length > 0
+                          ? displayAddOns.map(formatAddOnName).join(', ')
                           : 'None'}
                       </span>
                     </div>
 
                     {/* Add-on Refund Status (If add-ons exist) */}
-                    {fin.addOnsTotal > 0 && (
+                    {fin.addOnsTotal > 0 && selectedBookingDetails.status !== 'completed' && (
                       <div className="bg-foreground/[0.02] border border-foreground/10 p-2.5">
                         {isRefunded ? (
                           <div className="flex items-center justify-between text-emerald-400 text-[11px]">
@@ -949,103 +1332,121 @@ export default function ShootsPage() {
               })()}
 
               {/* Payment Link Dispatch via WhatsApp (Full or Half/Deposit) */}
-              {selectedBookingDetails.status !== 'cancelled' && (
-                <div className="space-y-2 bg-foreground/[0.02] border border-foreground/15 p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/60 font-semibold flex items-center gap-1.5">
-                      <Sparkles className="w-3 h-3 text-emerald-400" />
-                      Client Payment Links (WhatsApp Dispatch)
-                    </span>
-                    <span className="text-[8px] text-foreground/40 font-mono">
-                      Paystack 1.95% fee incurred by client
-                    </span>
-                  </div>
+              {(() => {
+                const isModalShootCompleted =
+                  selectedBookingDetails.date < todayStr ||
+                  (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
+                  selectedBookingDetails.status === 'completed';
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                    {/* Send Initial Deposit Link (50% Base + 100% Add-ons) */}
-                    <button
-                      type="button"
-                      disabled={sendingEmailId !== null}
-                      onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'deposit')}
-                      className="w-full py-2 px-3 bg-foreground/[0.05] hover:bg-foreground/[0.1] text-foreground border border-foreground/25 font-mono text-[9px] uppercase tracking-[0.15em] font-semibold transition-all flex items-center justify-between gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <MessageSquare className="w-3 h-3 text-foreground/70" />
-                        Send Initial Deposit (50% Base + Add-ons)
-                      </span>
-                      <span className="font-semibold">
-                        GHS {modalFin.depositPaid.toLocaleString()}
-                      </span>
-                    </button>
+                if (isModalShootCompleted || selectedBookingDetails.status === 'cancelled') return null;
 
-                    {/* Send Full Payment Link */}
-                    <button
-                      type="button"
-                      disabled={sendingEmailId !== null}
-                      onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'full')}
-                      className="w-full py-2 px-3 bg-foreground text-background font-mono text-[9px] uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-between gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <MessageSquare className="w-3 h-3" />
-                        Send Full Payment
+                return (
+                  <div className="space-y-2 bg-foreground/[0.02] border border-foreground/15 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/60 font-semibold flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-emerald-400" />
+                        Client Payment Links (WhatsApp Dispatch)
                       </span>
-                      <span className="font-semibold">
-                        GHS {Number(selectedBookingDetails.total_price || 0).toLocaleString()}
+                      <span className="text-[8px] text-foreground/40 font-mono">
+                        Paystack 1.95% fee incurred by client
                       </span>
-                    </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                      {/* Send Initial Deposit Link (50% Base + 100% Add-ons) */}
+                      <button
+                        type="button"
+                        disabled={sendingEmailId !== null}
+                        onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'deposit')}
+                        className="w-full py-2 px-3 bg-foreground/[0.05] hover:bg-foreground/[0.1] text-foreground border border-foreground/25 font-mono text-[9px] uppercase tracking-[0.15em] font-semibold transition-all flex items-center justify-between gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <MessageSquare className="w-3 h-3 text-foreground/70" />
+                          Send Initial Deposit (50% Base + Add-ons)
+                        </span>
+                        <span className="font-semibold">
+                          GHS {modalFin.depositPaid.toLocaleString()}
+                        </span>
+                      </button>
+
+                      {/* Send Full Payment Link */}
+                      <button
+                        type="button"
+                        disabled={sendingEmailId !== null}
+                        onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'full')}
+                        className="w-full py-2 px-3 bg-foreground text-background font-mono text-[9px] uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-between gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <MessageSquare className="w-3 h-3" />
+                          Send Full Payment
+                        </span>
+                        <span className="font-semibold">
+                          GHS {Number(selectedBookingDetails.total_price || 0).toLocaleString()}
+                        </span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Modal Footer with Actions */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-foreground/10 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={`https://wa.me/${selectedBookingDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${selectedBookingDetails.name}, regarding your upcoming BYNK photography shoot...`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[9px] uppercase tracking-wider text-foreground/70 hover:text-foreground border border-foreground/20 px-2.5 py-1 flex items-center gap-1 transition-colors"
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    WhatsApp
-                  </a>
+              {(() => {
+                const isModalShootCompleted =
+                  selectedBookingDetails.date < todayStr ||
+                  (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
+                  selectedBookingDetails.status === 'completed';
 
-                  {selectedBookingDetails.status !== 'cancelled' && selectedBookingDetails.status !== 'completed' && (
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-foreground/10 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={`https://wa.me/${selectedBookingDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${selectedBookingDetails.name}, regarding your upcoming BYNK photography shoot...`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[9px] uppercase tracking-wider text-foreground/70 hover:text-foreground border border-foreground/20 px-2.5 py-1 flex items-center gap-1 transition-colors"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        WhatsApp
+                      </a>
+
+                      {!isModalShootCompleted && selectedBookingDetails.status !== 'cancelled' && (
+                        <button
+                          onClick={() => {
+                            const b = selectedBookingDetails;
+                            setSelectedBookingDetails(null);
+                            handleOpenCompleteModal(b);
+                          }}
+                          className="text-[9px] uppercase tracking-wider text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          Complete Shoot
+                        </button>
+                      )}
+
+                      {!isModalShootCompleted && selectedBookingDetails.status !== 'cancelled' && (
+                        <button
+                          onClick={() => {
+                            const b = selectedBookingDetails;
+                            setSelectedBookingDetails(null);
+                            setCancellingShoot(b);
+                          }}
+                          className="text-[9px] uppercase tracking-wider text-red-400 hover:text-red-300 border border-red-500/30 px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <AlertCircle className="w-3 h-3" />
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+
                     <button
-                      onClick={() => {
-                        const id = selectedBookingDetails.id;
-                        setSelectedBookingDetails(null);
-                        handleMarkCompleted(id);
-                      }}
-                      className="text-[9px] uppercase tracking-wider text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer"
+                      onClick={() => setSelectedBookingDetails(null)}
+                      className="px-4 py-1.5 bg-foreground text-background text-[10px] uppercase tracking-widest font-semibold hover:bg-foreground/90 transition-colors cursor-pointer"
                     >
-                      <CheckCircle2 className="w-3 h-3" />
-                      Complete
+                      Close Receipt
                     </button>
-                  )}
-
-                  {selectedBookingDetails.status !== 'cancelled' && (
-                    <button
-                      onClick={() => {
-                        const b = selectedBookingDetails;
-                        setSelectedBookingDetails(null);
-                        setCancellingShoot(b);
-                      }}
-                      className="text-[9px] uppercase tracking-wider text-red-400 hover:text-red-300 border border-red-500/30 px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <AlertCircle className="w-3 h-3" />
-                      Cancel
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setSelectedBookingDetails(null)}
-                  className="px-4 py-1.5 bg-foreground text-background text-[10px] uppercase tracking-widest font-semibold hover:bg-foreground/90 transition-colors cursor-pointer"
-                >
-                  Close Receipt
-                </button>
-              </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           </motion.div>
           );
