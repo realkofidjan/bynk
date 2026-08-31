@@ -67,6 +67,7 @@ export default function UploadPage() {
   const [coverPhotoIndex, setCoverPhotoIndex] = useState(0);
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [converting, setConverting] = useState(false);
 
   // Asset Drag & Drop State
   const [dragging, setDragging] = useState(false);
@@ -75,6 +76,72 @@ export default function UploadPage() {
   const generateRandomPasscode = () => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setPasscode(code);
+  };
+
+  // Convert any image to high-quality JPEG (max 3200px, 92% quality)
+  const convertToHighQualityJpeg = async (file: File, quality = 0.92, maxDimension = 3200): Promise<File> => {
+    return new Promise((resolve) => {
+      // If already a small JPEG, keep as is
+      if (file.type === 'image/jpeg' && file.size < 5 * 1024 * 1024) {
+        resolve(file);
+        return;
+      }
+
+      const img = document.createElement('img');
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            const baseName = file.name.replace(/\.[^/.]+$/, '');
+            const jpegFilename = `${baseName}.jpg`;
+            const jpegFile = new File([blob], jpegFilename, { type: 'image/jpeg' });
+            resolve(jpegFile);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+
+      img.src = objectUrl;
+    });
   };
 
   // Fetch all galleries & uploads
@@ -100,11 +167,26 @@ export default function UploadPage() {
     fetchData();
   }, [fetchData]);
 
-  // Handle selected files for gallery
-  const handleGalleryFileSelect = (files: FileList | null) => {
+  // Handle selected files for gallery with automatic JPG conversion
+  const handleGalleryFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const newFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
-    const combined = [...selectedFiles, ...newFiles];
+    const rawFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (rawFiles.length === 0) return;
+
+    setConverting(true);
+    setStatusMessage({
+      type: 'info',
+      text: `Optimizing and converting ${rawFiles.length} photo(s) to high-quality JPG...`,
+    });
+
+    const convertedFiles: File[] = [];
+    for (let i = 0; i < rawFiles.length; i++) {
+      const f = rawFiles[i];
+      const jpg = await convertToHighQualityJpeg(f);
+      convertedFiles.push(jpg);
+    }
+
+    const combined = [...selectedFiles, ...convertedFiles];
     setSelectedFiles(combined);
 
     // Create object URLs for previews
@@ -113,6 +195,11 @@ export default function UploadPage() {
       url: URL.createObjectURL(file),
     }));
     setPreviews(newPreviews);
+    setConverting(false);
+    setStatusMessage({
+      type: 'success',
+      text: `Ready! ${convertedFiles.length} photo(s) converted to high-res JPG.`,
+    });
   };
 
   // Remove a file from pending gallery
