@@ -95,15 +95,141 @@ export async function GET() {
    POST /api/upload — Upload Gallery or Files & Sync to GitHub
    ──────────────────────────────────────── */
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const uploadType = (formData.get('uploadType') as string) || 'general';
-    const customGithubToken =
-      (formData.get('githubToken') as string) || process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 
     /* ════════════════════════════════════════
-       MODE 1: CLIENT SHOOT GALLERY UPLOAD
+       MODE 1A: INITIALIZE CLIENT GALLERY
+       ════════════════════════════════════════ */
+    if (uploadType === 'init_gallery') {
+      const clientTitle = (formData.get('clientTitle') as string || '').trim();
+      let slug = (formData.get('slug') as string || '').trim().toLowerCase();
+      let passcode = (formData.get('passcode') as string || '').trim();
+      const coverPhotoName = (formData.get('coverPhotoName') as string || '').trim();
+
+      if (!clientTitle) {
+        return NextResponse.json({ error: 'Client Shoot Title is required' }, { status: 400 });
+      }
+
+      if (!passcode) {
+        passcode = Math.floor(100000 + Math.random() * 900000).toString();
+      }
+
+      if (!slug) {
+        slug = clientTitle
+          .replace(/[^a-zA-Z0-9\s-_]/g, '')
+          .trim()
+          .replace(/\s+/g, '_');
+      } else {
+        slug = slug.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
+      }
+
+      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
+      if (!fs.existsSync(shootDir)) {
+        fs.mkdirSync(shootDir, { recursive: true });
+      }
+
+      const infoContent = `${passcode}\n${clientTitle}\n${coverPhotoName}\n`;
+      fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
+
+      return NextResponse.json({
+        success: true,
+        slug,
+        clientTitle,
+        passcode,
+        coverPhotoName,
+      });
+    }
+
+    /* ════════════════════════════════════════
+       MODE 1B: UPLOAD SINGLE PHOTO TO GALLERY
+       ════════════════════════════════════════ */
+    if (uploadType === 'upload_gallery_file') {
+      const slug = (formData.get('slug') as string || '').trim();
+      const file = formData.get('file') as File | null;
+
+      if (!slug || !file) {
+        return NextResponse.json({ error: 'Slug and file required' }, { status: 400 });
+      }
+
+      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
+      if (!fs.existsSync(shootDir)) {
+        fs.mkdirSync(shootDir, { recursive: true });
+      }
+
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const filePath = path.join(shootDir, sanitizedFileName);
+      const arrayBuffer = await file.arrayBuffer();
+      fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+
+      return NextResponse.json({
+        success: true,
+        filename: sanitizedFileName,
+        sizeBytes: arrayBuffer.byteLength,
+      });
+    }
+
+    /* ════════════════════════════════════════
+       MODE 1C: FINALIZE GALLERY & PUSH TO GITHUB
+       ════════════════════════════════════════ */
+    if (uploadType === 'finalize_gallery') {
+      const slug = (formData.get('slug') as string || '').trim();
+      const clientTitle = (formData.get('clientTitle') as string || '').trim();
+      const passcode = (formData.get('passcode') as string || '').trim();
+      const coverPhotoName = (formData.get('coverPhotoName') as string || '').trim();
+
+      if (!slug) {
+        return NextResponse.json({ error: 'Slug required' }, { status: 400 });
+      }
+
+      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
+      if (!fs.existsSync(shootDir)) {
+        return NextResponse.json({ error: 'Gallery folder not found' }, { status: 404 });
+      }
+
+      // Check files in folder
+      const allFiles = fs.readdirSync(shootDir).filter((f) => {
+        const ext = path.extname(f).toLowerCase();
+        return ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'].includes(ext);
+      });
+
+      const effectiveCover = coverPhotoName || (allFiles.length > 0 ? allFiles[0] : '');
+      const infoContent = `${passcode}\n${clientTitle}\n${effectiveCover}\n`;
+      fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
+
+      // Commit and Push
+      let pushedToGithub = false;
+      const commitMessage = `feat(gallery): add/update client gallery "${clientTitle}" (${slug}) with passcode [${passcode}]`;
+
+      try {
+        await execAsync(`git add "public/shoots/${slug}"`, { cwd: process.cwd() });
+        await execAsync(`git commit -m "${commitMessage}"`, { cwd: process.cwd() });
+        await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
+        pushedToGithub = true;
+      } catch (gitErr: any) {
+        console.warn('Git push notice:', gitErr?.message || gitErr);
+      }
+
+      return NextResponse.json({
+        success: true,
+        gallery: {
+          slug,
+          clientInfo: clientTitle,
+          passcode,
+          coverPhoto: effectiveCover ? `/shoots/${slug}/${effectiveCover}` : '',
+          imageCount: allFiles.length,
+          pushedToGithub,
+        },
+      });
+    }
+
+    /* ════════════════════════════════════════
+       MODE 1D: LEGACY BATCH CLIENT GALLERY UPLOAD
        ════════════════════════════════════════ */
     if (uploadType === 'client_gallery') {
       const clientTitle = (formData.get('clientTitle') as string || '').trim();
@@ -117,7 +243,6 @@ export async function POST(request: NextRequest) {
       }
 
       if (!passcode) {
-        // Auto-generate 6-digit passcode if not provided
         passcode = Math.floor(100000 + Math.random() * 900000).toString();
       }
 
@@ -137,7 +262,6 @@ export async function POST(request: NextRequest) {
 
       const savedFiles: string[] = [];
 
-      // Save each uploaded file
       for (const file of files) {
         if (!file || typeof file === 'string' || !file.name) continue;
         const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
@@ -147,16 +271,12 @@ export async function POST(request: NextRequest) {
         savedFiles.push(sanitizedFileName);
       }
 
-      // Determine cover photo
       const effectiveCover = coverPhotoName || (savedFiles.length > 0 ? savedFiles[0] : '');
-
-      // Create/update info.txt
       const infoContent = `${passcode}\n${clientTitle}\n${effectiveCover}\n`;
       fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
 
-      // Git Commit and Push to GitHub
       let pushedToGithub = false;
-      let commitMessage = `feat(gallery): add/update client gallery "${clientTitle}" (${slug}) with passcode [${passcode}]`;
+      const commitMessage = `feat(gallery): add/update client gallery "${clientTitle}" (${slug}) with passcode [${passcode}]`;
 
       try {
         await execAsync(`git add "public/shoots/${slug}"`, { cwd: process.cwd() });
@@ -164,7 +284,7 @@ export async function POST(request: NextRequest) {
         await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
         pushedToGithub = true;
       } catch (gitErr: any) {
-        console.warn('Git CLI push notice:', gitErr?.message || gitErr);
+        console.warn('Git push notice:', gitErr?.message || gitErr);
       }
 
       return NextResponse.json({

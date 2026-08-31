@@ -53,6 +53,7 @@ export default function UploadPage() {
   const [generalUploads, setGeneralUploads] = useState<UploadedFileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -141,33 +142,83 @@ export default function UploadPage() {
     }
 
     setUploading(true);
-    setStatusMessage({ type: 'info', text: `Uploading ${selectedFiles.length} photos and syncing gallery to GitHub...` });
-
     const effectivePasscode = passcode.trim() || Math.floor(100000 + Math.random() * 900000).toString();
     const coverPhotoName = selectedFiles[coverPhotoIndex]?.name?.replace(/[^a-zA-Z0-9_.-]/g, '_') || '';
-
-    const formData = new FormData();
-    formData.append('uploadType', 'client_gallery');
-    formData.append('clientTitle', clientTitle.trim());
-    formData.append('slug', customSlug.trim());
-    formData.append('passcode', effectivePasscode);
-    formData.append('coverPhotoName', coverPhotoName);
-
-    selectedFiles.forEach((file) => {
-      formData.append('files', file);
-    });
+    const targetSlug =
+      customSlug.trim() ||
+      clientTitle
+        .toLowerCase()
+        .replace(/[^a-zA-Z0-9\s-_]/g, '')
+        .trim()
+        .replace(/\s+/g, '_');
 
     try {
-      const res = await fetch('/api/upload', {
+      // Step 1: Initialize gallery folder & info.txt
+      setStatusMessage({ type: 'info', text: `Initializing gallery for "${clientTitle}"...` });
+      const initFormData = new FormData();
+      initFormData.append('uploadType', 'init_gallery');
+      initFormData.append('clientTitle', clientTitle.trim());
+      initFormData.append('slug', targetSlug);
+      initFormData.append('passcode', effectivePasscode);
+      initFormData.append('coverPhotoName', coverPhotoName);
+
+      const initRes = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        body: initFormData,
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (!initRes.ok) {
+        const errData = await initRes.json();
+        throw new Error(errData.error || 'Failed to initialize gallery directory');
+      }
+
+      const initData = await initRes.json();
+      const actualSlug = initData.slug || targetSlug;
+
+      // Step 2: Upload each photo individually to prevent FormData payload exhaustion
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        setUploadProgress({ current: i + 1, total: selectedFiles.length, filename: file.name });
+        setStatusMessage({
+          type: 'info',
+          text: `Uploading photo ${i + 1} of ${selectedFiles.length} (${file.name})...`,
+        });
+
+        const fileFormData = new FormData();
+        fileFormData.append('uploadType', 'upload_gallery_file');
+        fileFormData.append('slug', actualSlug);
+        fileFormData.append('file', file);
+
+        const fileRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: fileFormData,
+        });
+
+        if (!fileRes.ok) {
+          console.warn(`Warning: photo ${file.name} upload encountered issue.`);
+        }
+      }
+
+      // Step 3: Finalize gallery & push to GitHub
+      setStatusMessage({ type: 'info', text: `Committing & syncing all ${selectedFiles.length} photos to GitHub...` });
+      const finalizeFormData = new FormData();
+      finalizeFormData.append('uploadType', 'finalize_gallery');
+      finalizeFormData.append('slug', actualSlug);
+      finalizeFormData.append('clientTitle', clientTitle.trim());
+      finalizeFormData.append('passcode', effectivePasscode);
+      finalizeFormData.append('coverPhotoName', coverPhotoName);
+
+      const finalizeRes = await fetch('/api/upload', {
+        method: 'POST',
+        body: finalizeFormData,
+      });
+
+      const finalizeData = await finalizeRes.json();
+
+      if (finalizeRes.ok && finalizeData.success) {
         setStatusMessage({
           type: 'success',
-          text: `Gallery "${clientTitle}" with passcode ${effectivePasscode} successfully uploaded and synced to GitHub!`,
+          text: `Gallery "${clientTitle}" with passcode ${effectivePasscode} (${selectedFiles.length} photos) successfully uploaded and synced to GitHub!`,
         });
         // Reset form
         setClientTitle('');
@@ -181,14 +232,15 @@ export default function UploadPage() {
       } else {
         setStatusMessage({
           type: 'error',
-          text: data.error || 'Failed to create and push gallery to GitHub',
+          text: finalizeData.error || 'Failed to finalize gallery git push',
         });
       }
     } catch (err: any) {
       console.error('Gallery upload error:', err);
-      setStatusMessage({ type: 'error', text: err?.message || 'Network error while uploading gallery' });
+      setStatusMessage({ type: 'error', text: err?.message || 'Error uploading gallery files' });
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -830,12 +882,36 @@ export default function UploadPage() {
                     )}
                   </div>
 
+                  {/* Upload Progress Bar */}
+                  {uploadProgress && (
+                    <div className="space-y-1.5 p-3 bg-foreground/5 border border-foreground/15">
+                      <div className="flex justify-between items-center text-[10px] font-mono">
+                        <span className="text-foreground/70 truncate max-w-[280px]">
+                          Uploading: {uploadProgress.filename}
+                        </span>
+                        <span className="text-emerald-400 font-semibold">
+                          {uploadProgress.current} / {uploadProgress.total} (
+                          {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-foreground/10 h-1.5 overflow-hidden">
+                        <div
+                          className="bg-emerald-400 h-full transition-all duration-300"
+                          style={{
+                            width: `${(uploadProgress.current / uploadProgress.total) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Form Actions */}
                   <div className="flex items-center justify-end gap-3 pt-4 border-t border-foreground/10">
                     <button
                       type="button"
+                      disabled={uploading}
                       onClick={() => setShowCreateModal(false)}
-                      className="px-4 py-2 border border-foreground/20 text-foreground text-xs font-mono uppercase tracking-wider hover:bg-foreground/5 cursor-pointer"
+                      className="px-4 py-2 border border-foreground/20 text-foreground text-xs font-mono uppercase tracking-wider hover:bg-foreground/5 disabled:opacity-40 cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -847,7 +923,9 @@ export default function UploadPage() {
                       {uploading ? (
                         <>
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          Uploading & Pushing to GitHub...
+                          {uploadProgress
+                            ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
+                            : 'Syncing to GitHub...'}
                         </>
                       ) : (
                         <>
