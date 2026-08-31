@@ -30,6 +30,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="icon" href="/bynk.png?v=2" type="image/png" />
+        <link rel="shortcut icon" href="/bynk.png?v=2" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
+      </head>
       <body className="min-h-full bg-background text-foreground">
         {/* Global grain overlay */}
         <div className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.03] mix-blend-difference bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/1k_Dissolve_Noise_Texture.png')]" />
