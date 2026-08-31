@@ -7,6 +7,14 @@ import { GlobalGalleryProvider } from "@/components/global-gallery-provider";
 export const metadata: Metadata = {
   title: "bynk",
   description: "A minimalist photography portfolio showcasing visual stories through the lens.",
+  icons: {
+    icon: [
+      { url: '/bynk.png', sizes: 'any' },
+      { url: '/icon.png', sizes: 'any' },
+    ],
+    shortcut: '/bynk.png',
+    apple: '/apple-icon.png',
+  },
 };
 
 export const viewport: Viewport = {
