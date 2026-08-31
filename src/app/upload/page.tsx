@@ -430,7 +430,7 @@ export default function UploadPage() {
   );
 
   return (
-    <main className="min-h-screen bg-background text-foreground pt-24 pb-16 px-4 sm:px-8 lg:px-16 overflow-y-auto selection:bg-foreground/20 font-sans">
+    <main className="fixed inset-0 z-10 overflow-y-auto bg-background text-foreground pt-24 pb-20 px-4 sm:px-8 lg:px-16 selection:bg-foreground/20 font-sans overscroll-contain">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header Bar */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-foreground/15 pb-6">
