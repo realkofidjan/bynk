@@ -164,6 +164,7 @@ export default function GalleryClient() {
                     src={image.src}
                     alt={image.alt}
                     fill
+                    unoptimized
                     className="object-contain p-1 transition-transform duration-500 ease-out group-hover:scale-[1.02]"
                     sizes="(max-width: 768px) 50vw, 25vw"
                   />

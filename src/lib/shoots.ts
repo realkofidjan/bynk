@@ -73,8 +73,8 @@ export function getShoots(): Shoot[] {
       const images: ShootImage[] = imageFiles.map((filename) => {
         return {
           filename,
-          // Pick image directly from GitHub raw URL or local path
-          src: `${GITHUB_RAW_BASE}/${folder.name}/${filename}`,
+          // Use local /shoots/ path when available for instant loading, or GitHub raw
+          src: `/shoots/${folder.name}/${filename}`,
           alt: `${clientInfo} - ${path.parse(filename).name}`,
         };
       });
@@ -83,7 +83,7 @@ export function getShoots(): Shoot[] {
         slug: folder.name,
         passcode,
         clientInfo,
-        coverPhoto: coverPhoto ? `${GITHUB_RAW_BASE}/${folder.name}/${coverPhoto}` : '',
+        coverPhoto: coverPhoto ? `/shoots/${folder.name}/${coverPhoto}` : '',
         images,
       };
     })
