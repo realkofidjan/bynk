@@ -28,6 +28,13 @@ import {
   Send,
   Sparkle,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface ClientGalleryItem {
   slug: string;
@@ -83,6 +90,7 @@ export default function UploadPage() {
 
   // Gallery Creation Form State
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState('');
   const [clientTitle, setClientTitle] = useState('');
   const [customSlug, setCustomSlug] = useState('');
   const [passcode, setPasscode] = useState('');
@@ -183,39 +191,11 @@ export default function UploadPage() {
         fetch('/api/shoots?filter=all&limit=200').catch(() => null),
       ]);
 
-      let galleriesFound = false;
-
       if (uploadRes && uploadRes.ok) {
         const data = await uploadRes.json();
         if (data.success && Array.isArray(data.clientGalleries)) {
           setClientGalleries(data.clientGalleries);
           setGeneralUploads(data.generalUploads || []);
-          if (data.clientGalleries.length > 0) {
-            galleriesFound = true;
-          }
-        }
-      }
-
-      // If /api/upload was empty or failed on serverless, load directly from GitHub Raw manifest CDN
-      if (!galleriesFound) {
-        try {
-          const cdnRes = await fetch(
-            `https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/manifest.json?t=${Date.now()}`
-          );
-          if (cdnRes.ok) {
-            const manifest = await cdnRes.json();
-            if (Array.isArray(manifest) && manifest.length > 0) {
-              const formatted = manifest.map((s: any) => ({
-                ...s,
-                imageCount: s.images?.length || 0,
-                totalSizeMb: ((s.images?.length || 0) * 1.1).toFixed(2),
-                lastModified: new Date().toISOString(),
-              }));
-              setClientGalleries(formatted);
-            }
-          }
-        } catch (cdnErr) {
-          console.warn('CDN manifest fetch error:', cdnErr);
         }
       }
 
@@ -253,7 +233,20 @@ export default function UploadPage() {
       convertedFiles.push(jpg);
     }
 
-    const combined = [...selectedFiles, ...convertedFiles];
+    // Deduplicate: only add files that aren't already selected (by name and size)
+    const existingKeys = new Set(selectedFiles.map((f) => `${f.name}-${f.size}`));
+    const uniqueConverted = convertedFiles.filter((f) => !existingKeys.has(`${f.name}-${f.size}`));
+
+    if (uniqueConverted.length === 0) {
+      setConverting(false);
+      setStatusMessage({
+        type: 'info',
+        text: 'Selected photo(s) are already in the list.',
+      });
+      return;
+    }
+
+    const combined = [...selectedFiles, ...uniqueConverted];
     setSelectedFiles(combined);
 
     // Create object URLs for previews
@@ -265,7 +258,7 @@ export default function UploadPage() {
     setConverting(false);
     setStatusMessage({
       type: 'success',
-      text: `Ready! ${convertedFiles.length} photo(s) converted to high-res JPG.`,
+      text: `Ready! Added ${uniqueConverted.length} new photo(s) (total ${combined.length}).`,
     });
   };
 
@@ -328,8 +321,9 @@ export default function UploadPage() {
 
       const initData = await initRes.json();
       const actualSlug = initData.slug || targetSlug;
+      const galleryId = initData.galleryId || '';
 
-      // Step 2: Stream each photo as raw binary directly to server
+      // Step 2: Stream each photo as raw binary directly to server (uploads to Cloudinary)
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         setUploadProgress({ current: i + 1, total: selectedFiles.length, filename: file.name });
@@ -343,6 +337,7 @@ export default function UploadPage() {
           headers: {
             'x-upload-type': 'raw_photo',
             'x-slug': actualSlug,
+            'x-gallery-id': galleryId,
             'x-filename': encodeURIComponent(file.name),
             'Content-Type': file.type || 'application/octet-stream',
           },
@@ -355,8 +350,8 @@ export default function UploadPage() {
         }
       }
 
-      // Step 3: Finalize gallery & push to GitHub
-      setStatusMessage({ type: 'info', text: `Committing & syncing all ${selectedFiles.length} photos to GitHub...` });
+      // Step 3: Finalize gallery
+      setStatusMessage({ type: 'info', text: `Finalizing gallery with ${selectedFiles.length} photos...` });
       const finalizeFormData = new FormData();
       finalizeFormData.append('uploadType', 'finalize_gallery');
       finalizeFormData.append('slug', actualSlug);
@@ -374,12 +369,13 @@ export default function UploadPage() {
       if (finalizeRes.ok && finalizeData.success) {
         setStatusMessage({
           type: 'success',
-          text: `Gallery "${clientTitle}" with passcode ${effectivePasscode} (${selectedFiles.length} photos) successfully uploaded and synced to GitHub!`,
+          text: `Gallery "${clientTitle}" with passcode ${effectivePasscode} (${selectedFiles.length} photos) successfully uploaded to cloud storage!`,
         });
         // Reset form
         setClientTitle('');
         setCustomSlug('');
         setPasscode('');
+        setSelectedBookingId('');
         setSelectedFiles([]);
         setPreviews([]);
         setCoverPhotoIndex(0);
@@ -905,7 +901,12 @@ export default function UploadPage() {
                     </h2>
                   </div>
                   <button
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => {
+                      setSelectedFiles([]);
+                      setPreviews([]);
+                      setSelectedBookingId('');
+                      setShowCreateModal(false);
+                    }}
                     className="p-1.5 text-foreground/50 hover:text-foreground cursor-pointer"
                   >
                     ✕
@@ -919,9 +920,11 @@ export default function UploadPage() {
                       <div className="flex items-center justify-between text-[10px] font-mono text-foreground/60 uppercase tracking-wider">
                         <span>Quick-Fill from Past Shoots ({pastBookings.length} found):</span>
                       </div>
-                      <select
-                        onChange={(e) => {
-                          const chosen = pastBookings.find((b) => b.id === e.target.value);
+                      <Select
+                        value={selectedBookingId}
+                        onValueChange={(val) => {
+                          setSelectedBookingId(val);
+                          const chosen = pastBookings.find((b) => b.id === val);
                           if (chosen) {
                             const name = chosen.name || 'Client';
                             const pkg = chosen.package_name || 'Shoot';
@@ -935,15 +938,22 @@ export default function UploadPage() {
                             );
                           }
                         }}
-                        className="w-full bg-background border border-foreground/20 px-3 py-2 text-xs font-mono text-foreground outline-none cursor-pointer"
                       >
-                        <option value="">-- Or choose a client from past bookings --</option>
-                        {pastBookings.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name || 'Client'} ({b.phone || 'No phone'}) — {b.package_name || 'Shoot'} ({b.date || ''})
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full h-10 text-xs font-mono rounded-none border-foreground/20 bg-background focus:border-foreground">
+                          <SelectValue placeholder="-- Or choose a client from past bookings --" />
+                        </SelectTrigger>
+                        <SelectContent className="border-foreground/20 bg-background rounded-none z-[100] max-h-60 overflow-y-auto">
+                          {pastBookings.map((b) => (
+                            <SelectItem
+                              key={b.id}
+                              value={b.id}
+                              className="text-xs font-mono rounded-none cursor-pointer"
+                            >
+                              {b.name || 'Client'} ({b.phone || 'No phone'}) — {b.package_name || 'Shoot'} ({b.date || ''})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 
@@ -1032,7 +1042,10 @@ export default function UploadPage() {
                         multiple
                         accept="image/*"
                         id="gallery-file-input"
-                        onChange={(e) => handleGalleryFileSelect(e.target.files)}
+                        onChange={(e) => {
+                          handleGalleryFileSelect(e.target.files);
+                          e.target.value = '';
+                        }}
                         className="hidden"
                       />
                       <label
@@ -1139,7 +1152,12 @@ export default function UploadPage() {
                     <button
                       type="button"
                       disabled={uploading}
-                      onClick={() => setShowCreateModal(false)}
+                      onClick={() => {
+                        setSelectedFiles([]);
+                        setPreviews([]);
+                        setSelectedBookingId('');
+                        setShowCreateModal(false);
+                      }}
                       className="px-4 py-2 border border-foreground/20 text-foreground text-xs font-mono uppercase tracking-wider hover:bg-foreground/5 disabled:opacity-40 cursor-pointer"
                     >
                       Cancel

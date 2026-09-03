@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { verifyPasscode } from '@/app/gallery/actions';
 import { Shoot } from '@/lib/shoots';
-import { Download, Info, Loader2, X, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { Download, Info, Loader2, X, ChevronLeft, ChevronRight, Lock, AlertCircle } from 'lucide-react';
 import {
   InputOTP,
   InputOTPGroup,
@@ -27,7 +27,7 @@ export default function GalleryClient() {
 
       try {
         // Method 1: Next.js Server Action
-        let result: any = null;
+        let result: { success: boolean; shoot?: Shoot; error?: string } | null = null;
         try {
           result = await verifyPasscode(value);
         } catch (serverActionErr) {
@@ -50,7 +50,7 @@ export default function GalleryClient() {
         }
 
         setError('Invalid passcode. Please check and try again.');
-      } catch (err: any) {
+      } catch {
         setError('An error occurred while verifying passcode. Please try again.');
       } finally {
         setLoading(false);
@@ -81,6 +81,8 @@ export default function GalleryClient() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeImageIndex, shoot]);
+
+  const downloadsAvailable = shoot?.downloadsAvailable !== false;
 
   return (
     <div className="w-full max-w-6xl mx-auto flex flex-col items-center z-10 h-full max-h-full min-h-0 overflow-hidden">
@@ -165,7 +167,7 @@ export default function GalleryClient() {
                 </h1>
                 <p className="text-foreground/60 font-mono text-[10px] sm:text-[11px] uppercase tracking-widest flex items-center gap-2">
                   <Info className="w-3.5 h-3.5" />
-                  {shoot.images.length} High-Res Photos · Click any photo to view full screen
+                  {shoot.images.length} {downloadsAvailable ? 'High-Res' : 'Gallery'} Photos · Click any photo to view full screen
                 </p>
               </div>
 
@@ -175,7 +177,7 @@ export default function GalleryClient() {
                   className="flex items-center gap-2 px-3.5 py-2 bg-foreground text-background font-mono text-xs uppercase tracking-wider font-semibold hover:bg-foreground/90 transition-colors shadow-sm cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Download All (.zip)
+                  {downloadsAvailable ? 'Download All (.zip)' : 'Download All (Web)'}
                 </button>
                 <button
                   onClick={() => setShoot(null)}
@@ -186,6 +188,14 @@ export default function GalleryClient() {
                 </button>
               </div>
             </div>
+
+            {/* Expiry notice */}
+            {!downloadsAvailable && (
+              <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-foreground/5 border border-foreground/10 text-foreground/60 font-mono text-[10px] uppercase tracking-wider">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                High-resolution download period has ended. Gallery-quality versions are available.
+              </div>
+            )}
 
             {/* ONLY IMAGES SCROLLABLE CONTAINER */}
             <div className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2 pb-6 custom-scrollbar overscroll-contain">
@@ -204,13 +214,6 @@ export default function GalleryClient() {
                       <img
                         src={image.src}
                         alt={image.alt}
-                        onError={(e) => {
-                          const target = e.currentTarget;
-                          const raw = `https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/${shoot.slug}/${encodeURIComponent(image.filename)}`;
-                          if (target.src !== raw) {
-                            target.src = raw;
-                          }
-                        }}
                         className="max-w-full max-h-full w-auto h-auto object-contain block mx-auto transition-transform duration-500 group-hover:scale-[1.02]"
                       />
                     </div>
@@ -301,13 +304,6 @@ export default function GalleryClient() {
                     <img
                       src={shoot.images[activeImageIndex].src}
                       alt={shoot.images[activeImageIndex].alt}
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        const raw = `https://raw.githubusercontent.com/realkofidjan/bynk/main/public/shoots/${shoot.slug}/${encodeURIComponent(shoot.images[activeImageIndex].filename)}`;
-                        if (target.src !== raw) {
-                          target.src = raw;
-                        }
-                      }}
                       className="max-h-full max-w-full w-auto h-auto object-contain block mx-auto shadow-2xl"
                     />
 

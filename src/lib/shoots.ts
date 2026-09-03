@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { createServerSupabase } from '@/lib/supabase';
+import { getOptimizedUrl } from '@/lib/cloudinary';
 
 const REPO_OWNER = 'realkofidjan';
 const REPO_NAME = 'bynk';
@@ -11,6 +13,12 @@ export interface ShootImage {
   src: string;
   alt: string;
   filename: string;
+  originalUrl?: string;
+  originalDeleted?: boolean;
+  galleryPublicId?: string;
+  originalPublicId?: string;
+  /** @deprecated Used by legacy GitHub-based shoots */
+  rawUrl?: string;
 }
 
 export interface Shoot {
@@ -20,11 +28,93 @@ export interface Shoot {
   coverPhoto: string;
   images: ShootImage[];
   isRemote?: boolean;
+  /** Whether full-res originals are still available for download */
+  downloadsAvailable?: boolean;
+  /** ISO timestamp when originals expire */
+  expiresAt?: string;
+  /** Supabase gallery ID (only for Cloudinary-backed galleries) */
+  galleryId?: string;
 }
 
+/* ────────────────────────────────────────
+   Strategy 1: Supabase + Cloudinary (new)
+   ──────────────────────────────────────── */
+
 /**
- * Fetch shoots from local disk or manifest.json
+ * Fetch all shoots from Supabase (Cloudinary-backed galleries).
+ * Returns [] if no Supabase galleries exist or if query fails.
  */
+async function getShootsFromSupabase(): Promise<Shoot[]> {
+  try {
+    const supabase = createServerSupabase();
+    const { data: galleries, error } = await supabase
+      .from('client_galleries')
+      .select(`
+        id,
+        slug,
+        passcode,
+        client_info,
+        cover_photo_url,
+        status,
+        expires_at,
+        gallery_images (
+          id,
+          filename,
+          original_public_id,
+          gallery_public_id,
+          original_url,
+          gallery_url,
+          original_deleted
+        )
+      `)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (error || !galleries) return [];
+
+    return galleries.map((g: Record<string, unknown>) => {
+      const rawImages = (g.gallery_images as Record<string, unknown>[]) || [];
+      // Deduplicate images by filename to ensure no duplicates ever appear
+      const uniqueImagesMap = new Map<string, Record<string, unknown>>();
+      for (const img of rawImages) {
+        const fn = img.filename as string;
+        if (!uniqueImagesMap.has(fn)) {
+          uniqueImagesMap.set(fn, img);
+        }
+      }
+      const images = Array.from(uniqueImagesMap.values());
+      const hasOriginals = images.some((img) => !img.original_deleted && img.original_url);
+      const expiresAt = g.expires_at as string;
+
+      return {
+        slug: g.slug as string,
+        passcode: g.passcode as string,
+        clientInfo: g.client_info as string,
+        coverPhoto: (g.cover_photo_url as string) || (images[0] ? getOptimizedUrl(images[0].gallery_url as string) : ''),
+        galleryId: g.id as string,
+        expiresAt,
+        downloadsAvailable: g.status === 'active' && hasOriginals && new Date(expiresAt) > new Date(),
+        images: images.map((img) => ({
+          src: getOptimizedUrl(img.gallery_url as string),
+          alt: `${g.client_info} - ${(img.filename as string).replace(/\.[^/.]+$/, '')}`,
+          filename: img.filename as string,
+          originalUrl: img.original_url as string | undefined,
+          originalDeleted: img.original_deleted as boolean,
+          galleryPublicId: img.gallery_public_id as string,
+          originalPublicId: img.original_public_id as string | undefined,
+        })),
+      };
+    });
+  } catch (err) {
+    console.warn('Failed to fetch shoots from Supabase:', err);
+    return [];
+  }
+}
+
+/* ────────────────────────────────────────
+   Strategy 2: Local filesystem (legacy)
+   ──────────────────────────────────────── */
+
 export function getShoots(): Shoot[] {
   const shootsDir = path.join(process.cwd(), 'public', 'shoots');
   const manifestPath = path.join(shootsDir, 'manifest.json');
@@ -93,6 +183,7 @@ export function getShoots(): Shoot[] {
         clientInfo,
         coverPhoto: coverPhoto ? `${GITHUB_RAW_BASE}/${folder.name}/${coverPhoto}` : '',
         images,
+        downloadsAvailable: true,
       };
     })
     .filter((shoot) => shoot.images.length > 0 && shoot.passcode !== '');
@@ -100,115 +191,37 @@ export function getShoots(): Shoot[] {
   return shoots;
 }
 
-/**
- * Async fetch shoots from GitHub Raw CDN manifest with local fallback
- * 100% reliable on Vercel and serverless (no GitHub API rate limits)
- */
-export async function getShootsAsync(): Promise<Shoot[]> {
-  // Strategy 1: Fetch raw manifest from GitHub CDN (instant, non-rate-limited)
+/* ────────────────────────────────────────
+   Strategy 3: GitHub Raw CDN (legacy remote)
+   ──────────────────────────────────────── */
+
+async function getShootsFromGitHub(): Promise<Shoot[]> {
   try {
     const res = await fetch(`${GITHUB_MANIFEST_URL}?t=${Date.now()}`, {
       cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: { Accept: 'application/json' },
     });
 
     if (res.ok) {
       const shoots = await res.json();
       if (Array.isArray(shoots) && shoots.length > 0) {
-        return shoots;
+        return shoots.map((s: Shoot) => ({ ...s, downloadsAvailable: true }));
       }
     }
   } catch (err) {
-    console.warn('Could not fetch manifest from GitHub Raw, trying local/API:', err);
+    console.warn('Could not fetch manifest from GitHub Raw:', err);
   }
-
-  // Strategy 2: Local disk check
-  const localShoots = getShoots();
-  if (localShoots.length > 0) {
-    return localShoots;
-  }
-
-  // Strategy 3: GitHub Contents API
-  try {
-    const res = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/public/shoots`, {
-      headers: {
-        Accept: 'application/vnd.github.v3+json',
-        ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
-      },
-      cache: 'no-store',
-    });
-
-    if (res.ok) {
-      const contents = await res.json();
-      if (Array.isArray(contents)) {
-        const folderDirs = contents.filter((item: any) => item.type === 'dir');
-        const shoots: Shoot[] = [];
-
-        for (const dir of folderDirs) {
-          const slug = dir.name;
-          try {
-            const infoRes = await fetch(`${GITHUB_RAW_BASE}/${slug}/info.txt`, { cache: 'no-store' });
-            if (!infoRes.ok) continue;
-            const infoText = await infoRes.text();
-            const lines = infoText
-              .split('\n')
-              .map((l) => l.trim())
-              .filter((l) => l.length > 0);
-
-            const passcode = lines[0] || '';
-            const clientInfo = lines[1] || slug;
-            let coverPhoto = lines[2] || '';
-
-            const dirRes = await fetch(dir.url, {
-              headers: {
-                Accept: 'application/vnd.github.v3+json',
-                ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
-              },
-              cache: 'no-store',
-            });
-
-            if (dirRes.ok) {
-              const files = await dirRes.json();
-              const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
-              const imageFiles = files.filter((f: any) => {
-                const ext = path.extname(f.name).toLowerCase();
-                return f.type === 'file' && imageExtensions.includes(ext);
-              });
-
-              if (!coverPhoto && imageFiles.length > 0) {
-                coverPhoto = imageFiles[0].name;
-              }
-
-              const images: ShootImage[] = imageFiles.map((f: any) => ({
-                filename: f.name,
-                src: `${GITHUB_RAW_BASE}/${slug}/${f.name}`,
-                alt: `${clientInfo} - ${path.parse(f.name).name}`,
-              }));
-
-              if (passcode && images.length > 0) {
-                shoots.push({
-                  slug,
-                  passcode,
-                  clientInfo,
-                  coverPhoto: coverPhoto ? `${GITHUB_RAW_BASE}/${slug}/${coverPhoto}` : '',
-                  images,
-                  isRemote: true,
-                });
-              }
-            }
-          } catch {}
-        }
-
-        if (shoots.length > 0) {
-          return shoots;
-        }
-      }
-    }
-  } catch {}
-
   return [];
+}
+
+/* ────────────────────────────────────────
+   Public API: Combined async fetch
+   Priority: Supabase → GitHub CDN → Local disk
+   ──────────────────────────────────────── */
+
+export async function getShootsAsync(): Promise<Shoot[]> {
+  // Supabase (Cloudinary-backed) is the single source of truth
+  return await getShootsFromSupabase();
 }
 
 export function getShootByPasscode(passcode: string): Shoot | undefined {
@@ -221,9 +234,10 @@ export async function getShootByPasscodeAsync(passcode: string): Promise<Shoot |
   return shoots.find((shoot) => shoot.passcode.trim() === passcode.trim());
 }
 
-/**
- * Regenerate local public/shoots/manifest.json from all shoot directories
- */
+/* ────────────────────────────────────────
+   Manifest sync (legacy — kept for backward compat)
+   ──────────────────────────────────────── */
+
 export function syncShootsManifest(): Shoot[] {
   const shootsDir = path.join(process.cwd(), 'public', 'shoots');
   if (!fs.existsSync(shootsDir)) return [];
@@ -285,4 +299,3 @@ export function syncShootsManifest(): Shoot[] {
   fs.writeFileSync(path.join(shootsDir, 'manifest.json'), JSON.stringify(shoots, null, 2));
   return shoots;
 }
-

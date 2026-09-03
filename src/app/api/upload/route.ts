@@ -1,120 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { getShootsAsync, syncShootsManifest } from '@/lib/shoots';
-
-const execAsync = promisify(exec);
-
-const REPO_OWNER = 'realkofidjan';
-const REPO_NAME = 'bynk';
-const REPO_BRANCH = 'main';
+import { createServerSupabase } from '@/lib/supabase';
+import {
+  isCloudinaryConfigured,
+  uploadOriginal,
+  uploadGalleryImage,
+  getOptimizedUrl,
+  deleteFolder,
+} from '@/lib/cloudinary';
+import { getShootsAsync } from '@/lib/shoots';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
+/** 30 days in milliseconds */
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
 /* ────────────────────────────────────────
-   GET /api/upload — List client galleries and uploaded assets
+   GET /api/upload — List client galleries
    ──────────────────────────────────────── */
 
 export async function GET() {
   try {
-    // 1. Fetch Client Shoot Galleries (supports live serverless and local)
     const shoots = await getShootsAsync();
+
     const clientGalleries = shoots.map((shoot) => {
-      const folderPath = path.join(process.cwd(), 'public', 'shoots', shoot.slug);
-      let totalSizeBytes = 0;
-      let lastModified = new Date().toISOString();
-
-      if (fs.existsSync(folderPath)) {
-        try {
-          const stats = fs.statSync(folderPath);
-          lastModified = stats.mtime.toISOString();
-          const files = fs.readdirSync(folderPath);
-          for (const file of files) {
-            try {
-              const fileStat = fs.statSync(path.join(folderPath, file));
-              totalSizeBytes += fileStat.size;
-            } catch {}
-          }
-        } catch {}
-      }
-
       return {
         ...shoot,
         imageCount: shoot.images.length,
-        totalSizeBytes,
-        totalSizeMb: totalSizeBytes > 0 ? (totalSizeBytes / (1024 * 1024)).toFixed(2) : (shoot.images.length * 1.1).toFixed(2),
-        lastModified,
+        totalSizeMb: (shoot.images.length * 1.1).toFixed(2),
+        lastModified: new Date().toISOString(),
       };
     });
-
-    // 2. Fetch General Uploads (Safe on serverless read-only filesystems)
-    let generalUploads: any[] = [];
-    try {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-      if (fs.existsSync(uploadDir)) {
-        const files = fs.readdirSync(uploadDir).filter((file) => {
-          const ext = path.extname(file).toLowerCase();
-          return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.svg'].includes(ext);
-        });
-
-        generalUploads = files
-          .map((filename) => {
-            let sizeBytes = 0;
-            let uploadedAt = new Date().toISOString();
-            try {
-              const stats = fs.statSync(path.join(uploadDir, filename));
-              sizeBytes = stats.size;
-              uploadedAt = stats.mtime.toISOString();
-            } catch {}
-
-            return {
-              filename,
-              sizeBytes,
-              sizeMb: (sizeBytes / (1024 * 1024)).toFixed(2),
-              uploadedAt,
-              localUrl: `/uploads/${filename}`,
-              githubRawUrl: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/uploads/${filename}`,
-              githubBlobUrl: `https://github.com/${REPO_OWNER}/${REPO_NAME}/blob/${REPO_BRANCH}/public/uploads/${filename}`,
-            };
-          })
-          .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
-      }
-    } catch {}
-
-    let currentCommit = 'main';
-    try {
-      const { stdout } = await execAsync('git rev-parse --short HEAD', { cwd: process.cwd() });
-      currentCommit = stdout.trim();
-    } catch {}
 
     return NextResponse.json({
       success: true,
       clientGalleries,
-      generalUploads,
-      currentCommit,
-      repo: `${REPO_OWNER}/${REPO_NAME}`,
-      branch: REPO_BRANCH,
+      generalUploads: [],
+      cloudinaryEnabled: isCloudinaryConfigured(),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to list uploads:', err);
-    return NextResponse.json({ error: 'Failed to list uploaded files', details: err?.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to list uploaded files', details: String(err) },
+      { status: 500 }
+    );
   }
 }
 
 /* ────────────────────────────────────────
-   POST /api/upload — Upload Gallery or Files & Sync to GitHub
+   POST /api/upload — Upload Gallery or Files
    ──────────────────────────────────────── */
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if raw binary upload (avoids FormData buffer limits completely)
+    if (!isCloudinaryConfigured()) {
+      return NextResponse.json(
+        {
+          error: 'Cloudinary is not configured. Please add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your environment variables.',
+        },
+        { status: 500 }
+      );
+    }
+
+    const supabase = createServerSupabase();
+
+    // ── Raw binary upload (one image at a time) ──
     const rawUploadType = request.headers.get('x-upload-type');
 
     if (rawUploadType === 'raw_photo') {
       const rawSlug = request.headers.get('x-slug') || '';
+      const galleryId = request.headers.get('x-gallery-id') || '';
       let rawFilename = request.headers.get('x-filename') || '';
 
       try {
@@ -125,25 +80,56 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing x-slug or x-filename header' }, { status: 400 });
       }
 
-      const shootDir = path.join(process.cwd(), 'public', 'shoots', rawSlug);
-      if (!fs.existsSync(shootDir)) {
-        fs.mkdirSync(shootDir, { recursive: true });
+      const sanitized = rawFilename.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const arrayBuffer = await request.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Upload to Cloudinary: original + gallery copy in parallel
+      const [originalResult, galleryResult] = await Promise.all([
+        uploadOriginal(buffer, rawSlug, sanitized),
+        uploadGalleryImage(buffer, rawSlug, sanitized),
+      ]);
+
+      // Resolve gallery ID from slug if not provided
+      let resolvedGalleryId = galleryId;
+      if (!resolvedGalleryId) {
+        const { data: gallery } = await supabase
+          .from('client_galleries')
+          .select('id')
+          .eq('slug', rawSlug)
+          .single();
+        resolvedGalleryId = gallery?.id || '';
       }
 
-      const sanitized = rawFilename.replace(/[^a-zA-Z0-9_.-]/g, '_');
-      const targetPath = path.join(shootDir, sanitized);
-      const arrayBuffer = await request.arrayBuffer();
-      fs.writeFileSync(targetPath, Buffer.from(arrayBuffer));
+      // Save image record to Supabase
+      if (resolvedGalleryId) {
+        await supabase.from('gallery_images').upsert(
+          {
+            gallery_id: resolvedGalleryId,
+            filename: sanitized,
+            original_public_id: originalResult.publicId,
+            gallery_public_id: galleryResult.publicId,
+            original_url: originalResult.secureUrl,
+            gallery_url: galleryResult.secureUrl,
+            size_bytes: originalResult.bytes,
+            width: originalResult.width,
+            height: originalResult.height,
+          },
+          { onConflict: 'gallery_id,filename' }
+        );
+      }
 
       return NextResponse.json({
         success: true,
         filename: sanitized,
         sizeBytes: arrayBuffer.byteLength,
-        url: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/shoots/${rawSlug}/${sanitized}`,
+        url: getOptimizedUrl(galleryResult.secureUrl),
+        galleryUrl: getOptimizedUrl(galleryResult.secureUrl),
+        originalUrl: originalResult.secureUrl,
       });
     }
 
-    // Standard JSON / FormData Handling
+    // ── Standard FormData handling ──
     const formData = await request.formData();
     const uploadType = (formData.get('uploadType') as string) || 'general';
 
@@ -151,10 +137,9 @@ export async function POST(request: NextRequest) {
        MODE 1A: INITIALIZE CLIENT GALLERY
        ════════════════════════════════════════ */
     if (uploadType === 'init_gallery') {
-      const clientTitle = (formData.get('clientTitle') as string || '').trim();
-      let slug = (formData.get('slug') as string || '').trim().toLowerCase();
-      let passcode = (formData.get('passcode') as string || '').trim();
-      const coverPhotoName = (formData.get('coverPhotoName') as string || '').trim();
+      const clientTitle = ((formData.get('clientTitle') as string) || '').trim();
+      let slug = ((formData.get('slug') as string) || '').trim().toLowerCase();
+      let passcode = ((formData.get('passcode') as string) || '').trim();
 
       if (!clientTitle) {
         return NextResponse.json({ error: 'Client Shoot Title is required' }, { status: 400 });
@@ -173,117 +158,139 @@ export async function POST(request: NextRequest) {
         slug = slug.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
       }
 
-      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
-      if (!fs.existsSync(shootDir)) {
-        fs.mkdirSync(shootDir, { recursive: true });
-      }
+      const expiresAt = new Date(Date.now() + RETENTION_MS).toISOString();
 
-      const sanitizedCover = coverPhotoName.replace(/[^a-zA-Z0-9_.-]/g, '_');
-      const infoContent = `${passcode}\n${clientTitle}\n${sanitizedCover}\n`;
-      fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
-
-      return NextResponse.json({
-        success: true,
-        slug,
-        clientTitle,
-        passcode,
-        coverPhotoName: sanitizedCover,
-      });
-    }
-
-    /* ════════════════════════════════════════
-       MODE 1B: FINALIZE GALLERY & PUSH TO GITHUB
-       ════════════════════════════════════════ */
-    if (uploadType === 'finalize_gallery') {
-      const slug = (formData.get('slug') as string || '').trim();
-      const clientTitle = (formData.get('clientTitle') as string || '').trim();
-      const passcode = (formData.get('passcode') as string || '').trim();
-      const coverPhotoName = (formData.get('coverPhotoName') as string || '').trim();
-
-      if (!slug) {
-        return NextResponse.json({ error: 'Slug required' }, { status: 400 });
-      }
-
-      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
-      if (!fs.existsSync(shootDir)) {
-        return NextResponse.json({ error: 'Gallery folder not found' }, { status: 404 });
-      }
-
-      // Check image files in folder
-      const allFiles = fs.readdirSync(shootDir).filter((f) => {
-        const ext = path.extname(f).toLowerCase();
-        return ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'].includes(ext);
-      });
-
-      if (allFiles.length === 0) {
-        return NextResponse.json(
-          { error: 'No photos were found in gallery folder to commit' },
-          { status: 400 }
-        );
-      }
-
-      const effectiveCover = coverPhotoName || allFiles[0];
-      const infoContent = `${passcode}\n${clientTitle}\n${effectiveCover}\n`;
-      fs.writeFileSync(path.join(shootDir, 'info.txt'), infoContent, 'utf-8');
-
-      // Update manifest.json for live GitHub CDN serving
-      syncShootsManifest();
-
-      // Commit and Push to GitHub repository
-      const commitMessage = `feat(gallery): add/update client gallery "${clientTitle}" (${slug}) with passcode [${passcode}]`;
-
-      try {
-        await execAsync(`git add -A "public/shoots/${slug}" "public/shoots/manifest.json"`, { cwd: process.cwd() });
-        await execAsync(`git commit -m "${commitMessage}"`, { cwd: process.cwd() });
-        await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
-      } catch (gitErr: any) {
-        console.error('Git push error:', gitErr);
-        return NextResponse.json(
+      // Upsert gallery record (handles retries gracefully)
+      const { data: gallery, error: upsertError } = await supabase
+        .from('client_galleries')
+        .upsert(
           {
-            error: 'Git push to GitHub failed',
-            details: gitErr?.stderr || gitErr?.message || String(gitErr),
+            slug,
+            passcode,
+            client_info: clientTitle,
+            status: 'active',
+            expires_at: expiresAt,
+            updated_at: new Date().toISOString(),
           },
+          { onConflict: 'slug' }
+        )
+        .select()
+        .single();
+
+      if (upsertError || !gallery) {
+        console.error('Supabase upsert error:', upsertError);
+        return NextResponse.json(
+          { error: 'Failed to create gallery record', details: upsertError?.message },
           { status: 500 }
         );
       }
 
       return NextResponse.json({
         success: true,
+        slug: gallery.slug,
+        clientTitle,
+        passcode,
+        galleryId: gallery.id,
+        expiresAt,
+      });
+    }
+
+    /* ════════════════════════════════════════
+       MODE 1B: FINALIZE GALLERY
+       ════════════════════════════════════════ */
+    if (uploadType === 'finalize_gallery') {
+      const slug = ((formData.get('slug') as string) || '').trim();
+      const coverPhotoName = ((formData.get('coverPhotoName') as string) || '').trim();
+
+      if (!slug) {
+        return NextResponse.json({ error: 'Slug required' }, { status: 400 });
+      }
+
+      // Get gallery and its images
+      const { data: gallery } = await supabase
+        .from('client_galleries')
+        .select('id')
+        .eq('slug', slug)
+        .single();
+
+      if (!gallery) {
+        return NextResponse.json({ error: 'Gallery not found' }, { status: 404 });
+      }
+
+      // Find the cover photo image record
+      let coverPhotoUrl = '';
+      if (coverPhotoName) {
+        const sanitizedCover = coverPhotoName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const { data: coverImage } = await supabase
+          .from('gallery_images')
+          .select('gallery_url')
+          .eq('gallery_id', gallery.id)
+          .eq('filename', sanitizedCover)
+          .single();
+
+        if (coverImage) {
+          coverPhotoUrl = getOptimizedUrl(coverImage.gallery_url);
+        }
+      }
+
+      // If no cover photo set, use first image
+      if (!coverPhotoUrl) {
+        const { data: firstImage } = await supabase
+          .from('gallery_images')
+          .select('gallery_url')
+          .eq('gallery_id', gallery.id)
+          .limit(1)
+          .single();
+
+        if (firstImage) {
+          coverPhotoUrl = getOptimizedUrl(firstImage.gallery_url);
+        }
+      }
+
+      // Update gallery with cover photo
+      await supabase
+        .from('client_galleries')
+        .update({
+          cover_photo_url: coverPhotoUrl,
+          status: 'active',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', gallery.id);
+
+      // Count images
+      const { count } = await supabase
+        .from('gallery_images')
+        .select('*', { count: 'exact', head: true })
+        .eq('gallery_id', gallery.id);
+
+      return NextResponse.json({
+        success: true,
         gallery: {
           slug,
-          clientInfo: clientTitle,
-          passcode,
-          coverPhoto: effectiveCover ? `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/shoots/${slug}/${effectiveCover}` : '',
-          imageCount: allFiles.length,
-          pushedToGithub: true,
+          coverPhoto: coverPhotoUrl,
+          imageCount: count || 0,
+          cloudinary: true,
         },
       });
     }
 
     /* ════════════════════════════════════════
-       MODE 2: DELETE GALLERY & SYNC TO GITHUB
+       MODE 2: DELETE GALLERY
        ════════════════════════════════════════ */
     if (uploadType === 'delete_gallery') {
-      const slug = (formData.get('slug') as string || '').trim();
+      const slug = ((formData.get('slug') as string) || '').trim();
       if (!slug) {
         return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
       }
 
-      const shootDir = path.join(process.cwd(), 'public', 'shoots', slug);
-      if (fs.existsSync(shootDir)) {
-        fs.rmSync(shootDir, { recursive: true, force: true });
-      }
+      // Delete from Cloudinary (both originals and gallery folders)
+      await Promise.all([
+        deleteFolder(`bynk/originals/${slug}`),
+        deleteFolder(`bynk/gallery/${slug}`),
+      ]);
 
-      // Update manifest.json for live serving
-      syncShootsManifest();
-
-      try {
-        await execAsync(`git add -A "public/shoots/${slug}" "public/shoots/manifest.json"`, { cwd: process.cwd() });
-        await execAsync(`git commit -m "feat(gallery): remove client gallery '${slug}'"`, { cwd: process.cwd() });
-        await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
-      } catch (gitErr: any) {
-        console.warn('Git delete push notice:', gitErr?.message);
-      }
+      // Delete from Supabase (cascade deletes gallery_images)
+      await supabase.from('client_galleries').delete().eq('slug', slug);
 
       return NextResponse.json({ success: true, deletedSlug: slug });
     }
@@ -297,37 +304,27 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No file provided' }, { status: 400 });
       }
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-
       const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-      const filePath = path.join(uploadDir, sanitizedFileName);
       const arrayBuffer = await file.arrayBuffer();
-      fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+      const buffer = Buffer.from(arrayBuffer);
+      const baseName = sanitizedFileName.replace(/\.[^/.]+$/, '');
 
-      const commitMessage = `feat(uploads): upload asset ${sanitizedFileName}`;
-      try {
-        await execAsync(`git add "public/uploads/${sanitizedFileName}"`, { cwd: process.cwd() });
-        await execAsync(`git commit -m "${commitMessage}"`, { cwd: process.cwd() });
-        await execAsync(`git push origin ${REPO_BRANCH}`, { cwd: process.cwd() });
-      } catch (gitErr: any) {
-        console.warn('Git asset push notice:', gitErr?.message);
-      }
+      const result = await uploadGalleryImage(buffer, 'assets', baseName);
 
-      const rawUrl = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}/public/uploads/${sanitizedFileName}`;
       return NextResponse.json({
         success: true,
         filename: sanitizedFileName,
-        url: `/uploads/${sanitizedFileName}`,
-        githubRawUrl: rawUrl,
+        url: getOptimizedUrl(result.secureUrl),
+        cloudinaryUrl: result.secureUrl,
       });
     }
 
     return NextResponse.json({ error: 'Invalid uploadType' }, { status: 400 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Upload handler exception:', err);
-    return NextResponse.json({ error: 'Internal server upload error', details: err?.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server upload error', details: String(err) },
+      { status: 500 }
+    );
   }
 }
