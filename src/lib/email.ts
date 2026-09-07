@@ -363,3 +363,180 @@ export async function sendCustomOrderEmail({
   return { success: true, simulated: true };
 }
 
+export type BookingConfirmationEmailParams = {
+  toEmail: string;
+  clientName: string;
+  bookingRef: string;
+  categoryLabel: string;
+  tierName: string;
+  shootDate: string;
+  timeSlotLabel: string;
+  depositPaidGhs: number;
+  totalPriceGhs: number;
+  remainingBalanceGhs: number;
+  lookupUrl?: string;
+};
+
+/**
+ * Send automated booking confirmation email with reference and shoot details upon payment success.
+ */
+export async function sendBookingConfirmationEmail({
+  toEmail,
+  clientName,
+  bookingRef,
+  categoryLabel,
+  tierName,
+  shootDate,
+  timeSlotLabel,
+  depositPaidGhs,
+  totalPriceGhs,
+  remainingBalanceGhs,
+  lookupUrl,
+}: BookingConfirmationEmailParams) {
+  const portalUrl = lookupUrl || 'https://bynkphotography.com/book/lookup';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background-color: #050505; color: #f5f5f5; margin: 0; padding: 40px 20px; }
+          .container { max-width: 560px; margin: 0 auto; background: #0a0a0a; border: 1px solid #262626; padding: 36px; border-radius: 4px; }
+          .header { text-transform: uppercase; font-size: 10px; letter-spacing: 3px; color: #888; margin-bottom: 8px; }
+          .title { font-family: Georgia, serif; font-size: 26px; color: #fff; margin: 0 0 8px 0; font-weight: normal; }
+          .subtitle { font-size: 13px; color: #a3a3a3; line-height: 1.5; margin-bottom: 24px; }
+          .badge { display: inline-block; background: #16a34a20; border: 1px solid #16a34a50; color: #4ade80; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 2px; margin-bottom: 20px; }
+          .divider { height: 1px; background: #262626; margin: 24px 0; }
+          .ref-box { background: #141414; border: 1px solid #333; padding: 16px; margin: 20px 0; text-align: center; border-radius: 4px; }
+          .ref-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin-bottom: 4px; }
+          .ref-value { font-family: monospace; font-size: 18px; color: #fff; font-weight: bold; letter-spacing: 2px; }
+          .detail-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 12px; }
+          .label { color: #888; text-transform: uppercase; letter-spacing: 1px; }
+          .value { color: #fff; font-weight: 500; }
+          .amount-row { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-top: 1px solid #1f1f1f; }
+          .button { display: inline-block; background: #fff; color: #000; text-decoration: none; padding: 14px 28px; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; text-align: center; border-radius: 2px; margin-top: 24px; }
+          .footer { margin-top: 36px; font-size: 11px; color: #666; text-align: center; line-height: 1.6; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">BYNK Photography · Booking Confirmed</div>
+          <h1 class="title">Shoot Confirmed</h1>
+          <div class="badge">Deposit Paid · Reserved</div>
+          <p class="subtitle">Dear ${clientName}, your shoot has been successfully confirmed. We look forward to working with you.</p>
+
+          <div class="ref-box">
+            <div class="ref-label">Your Booking Reference</div>
+            <div class="ref-value">${bookingRef}</div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="detail-row">
+            <span class="label">Session</span>
+            <span class="value">${categoryLabel} — ${tierName}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Date</span>
+            <span class="value">${shootDate}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Time</span>
+            <span class="value">${timeSlotLabel}</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="amount-row">
+            <span class="label">Total Price:</span>
+            <span class="value">GHS ${totalPriceGhs.toLocaleString()}</span>
+          </div>
+          <div class="amount-row">
+            <span class="label">Deposit Paid:</span>
+            <span class="value" style="color: #4ade80;">GHS ${depositPaidGhs.toLocaleString()}</span>
+          </div>
+          <div class="amount-row" style="border-top: 1px solid #333; font-weight: bold;">
+            <span class="label" style="color: #fff;">Remaining Balance:</span>
+            <span class="value" style="color: #fbbf24;">GHS ${remainingBalanceGhs.toLocaleString()}</span>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${portalUrl}" class="button">View Booking Details</a>
+          </div>
+
+          <div class="footer">
+            <p>Save this email for your records. You can check your booking status anytime on our website using your email.</p>
+            <p>Questions? Contact us at <a href="mailto:bynkphotography@gmail.com" style="color: #888;">bynkphotography@gmail.com</a> or WhatsApp +233 20 555 5084.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  // 1. Try Nodemailer SMTP if configured
+  const hasRealSmtpPass = process.env.SMTP_PASS && !process.env.SMTP_PASS.includes('your_') && process.env.SMTP_PASS !== 'xxxx xxxx xxxx xxxx';
+
+  if (process.env.SMTP_USER && hasRealSmtpPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp-mail.outlook.com',
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+      await transporter.sendMail({
+        from: `BYNK Photography <${fromEmail}>`,
+        to: toEmail,
+        subject: `Booking Confirmed (${shootDate}) — BYNK Photography [Ref: ${bookingRef}]`,
+        html,
+      });
+
+      return { success: true, provider: 'smtp' };
+    } catch (err: any) {
+      console.error('Nodemailer SMTP error in booking confirmation email:', err);
+      return {
+        success: false,
+        error: `Outlook/SMTP Error: ${err.message || 'Authentication failed'}`,
+      };
+    }
+  }
+
+  // 2. Try Resend if configured
+  if (resend) {
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'BYNK Photography <onboarding@resend.dev>';
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromAddress,
+        to: [toEmail],
+        subject: `Booking Confirmed (${shootDate}) — BYNK Photography [Ref: ${bookingRef}]`,
+        html,
+      });
+
+      if (error) {
+        console.error('Resend email error in booking confirmation email:', error);
+        return {
+          success: false,
+          error: error.message || 'Resend domain error.',
+        };
+      }
+
+      return { success: true, provider: 'resend', emailId: data?.id };
+    } catch (err: any) {
+      console.error('Resend exception in booking confirmation email:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // 3. Fallback
+  console.warn('Neither SMTP nor Resend configured. Booking confirmation logged:');
+  console.log({ to: toEmail, clientName, bookingRef, shootDate, depositPaidGhs });
+  return { success: true, simulated: true };
+}
+
+

@@ -35,21 +35,64 @@ export async function POST(request: NextRequest) {
 
       const supabase = createServerSupabase();
 
+      let updatedBooking = null;
+
       if (bookingId) {
-        await supabase
+        const { data: b } = await supabase
           .from('bookings')
           .update({
             status: 'confirmed',
             paystack_reference: reference,
           })
-          .eq('id', bookingId);
+          .eq('id', bookingId)
+          .select('*')
+          .single();
+        updatedBooking = b;
       } else if (reference) {
-        await supabase
+        const { data: b } = await supabase
           .from('bookings')
           .update({
             status: 'confirmed',
           })
-          .eq('paystack_reference', reference);
+          .eq('paystack_reference', reference)
+          .select('*')
+          .single();
+        updatedBooking = b;
+      }
+
+      // Auto-send confirmation email if booking found
+      if (updatedBooking && updatedBooking.email) {
+        try {
+          const { sendBookingConfirmationEmail } = await import('@/lib/email');
+          const { calculateBookingFinancials, formatTimeLabel, getBookingStartTime, getBookingEndTime } = await import('@/lib/booking-types');
+
+          const isFullDay = updatedBooking.full_day || updatedBooking.slot === 'full_day';
+          const startTime = getBookingStartTime(updatedBooking);
+          const endTime = getBookingEndTime(updatedBooking);
+          const timeSlotLabel = isFullDay
+            ? 'Full Day Coverage (9:00 AM – 5:00 PM)'
+            : `${formatTimeLabel(startTime)} – ${formatTimeLabel(endTime)}`;
+
+          const financials = calculateBookingFinancials({
+            total_price: updatedBooking.total_price || 0,
+            add_ons: updatedBooking.add_ons || [],
+          });
+
+          await sendBookingConfirmationEmail({
+            toEmail: updatedBooking.email,
+            clientName: updatedBooking.name || 'Client',
+            bookingRef: updatedBooking.paystack_reference || updatedBooking.id,
+            categoryLabel: (updatedBooking.category || 'Shoot').toUpperCase(),
+            tierName: updatedBooking.tier || 'Package',
+            shootDate: updatedBooking.date,
+            timeSlotLabel,
+            depositPaidGhs: financials.depositPaid,
+            totalPriceGhs: updatedBooking.total_price || 0,
+            remainingBalanceGhs: financials.remainingBalance,
+          });
+        } catch (emailErr) {
+          console.error('Failed to send confirmation email from webhook:', emailErr);
+        }
       }
     }
 

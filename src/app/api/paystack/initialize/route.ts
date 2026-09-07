@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
     const proto = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
     const origin = `${proto}://${host}`;
-    const callbackUrl = `${origin}/book?status=payment_complete&bookingId=${bookingId}`;
+    const callbackUrl = `${origin}/book/success?bookingId=${bookingId}`;
 
     const base = basePriceGhs || totalPrice;
     const addOns = addOnsGhs || 0;

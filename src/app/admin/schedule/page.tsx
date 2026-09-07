@@ -104,30 +104,29 @@ export default function SchedulePage() {
   };
 
   return (
-    <main className="relative z-10 h-screen max-h-screen bg-background text-foreground pt-24 pb-6 px-4 sm:px-8 lg:px-16 flex flex-col overflow-hidden selection:bg-foreground/20">
-      {/* Background ambient glow */}
-      <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
-
-      <div className="relative z-10 max-w-6xl mx-auto w-full flex flex-col h-full overflow-hidden">
-        {/* Fixed Header & Controls */}
-        <div className="flex-none space-y-6 pb-4">
-          {/* Header Title & Sync Controls */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-foreground/15 pb-6">
+    <div className="h-full flex flex-col bg-background text-foreground px-4 sm:px-8 lg:px-12 selection:bg-foreground/20 font-sans overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex flex-col h-full min-h-0">
+        {/* Fixed Content Header */}
+        <div className="flex-none pt-8 pb-6 border-b border-foreground/15">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div>
-              <p className="text-foreground/50 text-[10px] font-mono uppercase tracking-[0.3em] mb-1 font-medium">
-                Photographer Schedule & Device Sync
-              </p>
+              <div className="flex items-center gap-2 text-foreground/40 font-mono text-[10px] uppercase tracking-[0.3em] mb-1 font-medium">
+                <CalendarIcon className="w-3.5 h-3.5" /> Photographer Schedule &amp; Device Sync
+              </div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif tracking-tight text-foreground">
                 Bookings Schedule
               </h1>
+              <p className="text-xs font-mono text-foreground/50 mt-1">
+                Live bookings calendar &amp; real-time iCal sync for Apple, Google &amp; Outlook
+              </p>
             </div>
 
             {/* Sync & Export Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleExportAllIcs}
                 disabled={filteredShoots.length === 0}
-                className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer disabled:opacity-40"
+                className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer font-semibold disabled:opacity-40"
               >
                 <Download className="w-3.5 h-3.5" />
                 Download All (.ics)
@@ -137,49 +136,51 @@ export default function SchedulePage() {
                 onClick={handleCopyFeedUrl}
                 className="px-4 py-2.5 bg-foreground/[0.04] text-foreground border border-foreground/20 font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/[0.08] transition-all flex items-center gap-2 rounded-none cursor-pointer"
               >
-                {copiedFeed ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                {copiedFeed ? 'Feed URL Copied!' : 'Copy iCal Feed URL'}
+                {copiedFeed ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-foreground/70" />}
+                {copiedFeed ? 'Feed Copied!' : 'Copy iCal Feed'}
               </button>
 
               <button
                 onClick={fetchShoots}
-                className="p-2.5 bg-foreground/[0.03] border border-foreground/20 text-foreground/70 hover:text-foreground transition-colors cursor-pointer"
+                disabled={loading}
+                className="p-2.5 border border-foreground/20 hover:bg-foreground/5 transition-colors cursor-pointer"
                 title="Refresh schedule"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-foreground/70 ${loading ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
-
-          {/* Filter Tabs & Stats Bar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-foreground/[0.02] border border-foreground/10 p-4">
-            <div className="flex items-center gap-1">
-              {(['upcoming', 'completed', 'all'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setFilter(tab)}
-                  className={`
-                    px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.2em] transition-all rounded-none cursor-pointer
-                    ${
-                      filter === tab
-                        ? 'bg-foreground text-background font-medium'
-                        : 'text-foreground/50 hover:text-foreground hover:bg-foreground/[0.04]'
-                    }
-                  `}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            <p className="text-[10px] font-mono text-foreground/50">
-              Showing <span className="text-foreground font-semibold">{filteredShoots.length}</span> shoot{filteredShoots.length === 1 ? '' : 's'}
-            </p>
-          </div>
         </div>
 
-        {/* Scrollable Schedule Items Container */}
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4 min-h-0 custom-scrollbar pb-6">
+        {/* Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto min-h-0 py-6 space-y-6 pb-12 no-scrollbar">
+          {/* Filter Tabs & Stats Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-foreground/[0.02] border border-foreground/10 p-4">
+          <div className="flex items-center gap-1">
+            {(['upcoming', 'completed', 'all'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setFilter(tab)}
+                className={`
+                  px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-all rounded-none cursor-pointer
+                  ${
+                    filter === tab
+                      ? 'bg-foreground text-background font-semibold shadow-sm'
+                      : 'text-foreground/50 hover:text-foreground hover:bg-foreground/5'
+                  }
+                `}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[10px] font-mono text-foreground/50">
+            Showing <span className="text-foreground font-semibold">{filteredShoots.length}</span> shoot{filteredShoots.length === 1 ? '' : 's'}
+          </p>
+        </div>
+
+        {/* Schedule Items */}
         {loading ? (
           <div className="py-20 text-center">
             <div className="w-6 h-6 border-2 border-foreground/30 border-t-foreground animate-spin mx-auto mb-3" />
@@ -197,7 +198,7 @@ export default function SchedulePage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 pb-12 font-mono">
             {filteredShoots.map((shoot) => {
               const [y, m, d] = shoot.date.split('-').map(Number);
               const dateObj = new Date(y, m - 1, d);
@@ -382,6 +383,6 @@ export default function SchedulePage() {
         )}
         </div>
       </div>
-    </main>
+    </div>
   );
 }

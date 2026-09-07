@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -11,11 +12,13 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
+  Camera,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
   RefreshCw,
   FileText,
+  Pencil,
   X,
   DollarSign,
   Check,
@@ -35,10 +38,13 @@ import {
   getBookingEndTime,
   formatTimeLabel,
   toDateKey,
+  parseBookingTier,
+  getCategoryLabel,
 } from '@/lib/booking-types';
 import CustomOrderCreator from '@/components/custom-order-creator';
 
-export default function ShootsPage() {
+export default function AdminShootsPage() {
+  const router = useRouter();
   const todayStr = toDateKey(new Date());
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'custom-order'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,8 +81,7 @@ export default function ShootsPage() {
   const [completionNotes, setCompletionNotes] = useState('');
   const [completingLoading, setCompletingLoading] = useState(false);
 
-  // Detailed view & refund tracking state
-  const [selectedBookingDetails, setSelectedBookingDetails] = useState<Booking | null>(null);
+  // Refund tracking state
   const [refundedShootIds, setRefundedShootIds] = useState<string[]>([]);
   const [processingRefundId, setProcessingRefundId] = useState<string | null>(null);
 
@@ -343,87 +348,113 @@ export default function ShootsPage() {
   };
 
   return (
-    <main className="relative z-10 h-screen max-h-screen bg-background text-foreground selection:bg-foreground/20 font-mono pt-20 sm:pt-24 pb-4 flex flex-col overflow-hidden">
-      {/* Header Bar */}
-      <header className="flex-none border-b border-foreground/10 bg-background/90 backdrop-blur-md px-6 sm:px-12 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <p className="text-foreground/40 text-[9px] uppercase tracking-[0.3em] mb-1">
-            BYNK Photography · Admin Dashboard
-          </p>
-          <h1 className="text-xl sm:text-2xl font-serif tracking-tight text-foreground">
-            Shoots &amp; Custom Orders
-          </h1>
+    <div className="h-full flex flex-col bg-background text-foreground px-4 sm:px-8 lg:px-12 selection:bg-foreground/20 font-sans overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex flex-col h-full min-h-0">
+        {/* Fixed Content Header */}
+        <div className="flex-none pt-8 pb-6 border-b border-foreground/15">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-foreground/40 font-mono text-[10px] uppercase tracking-[0.3em] mb-1 font-medium">
+                <Camera className="w-3.5 h-3.5" /> Bookings &amp; Custom Orders
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif tracking-tight text-foreground">
+                Shoots &amp; Orders
+              </h1>
+              <p className="text-xs font-mono text-foreground/50 mt-1">
+                Manage confirmed shoots, client inquiries, balances &amp; offline settlements
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleTabChange('custom-order')}
+                className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer font-semibold"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Custom Order
+              </button>
+              <button
+                onClick={fetchShoots}
+                disabled={loading}
+                className="p-2.5 border border-foreground/20 hover:bg-foreground/5 transition-colors cursor-pointer"
+                title="Refresh shoots"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-foreground/70 ${loading && activeTab !== 'custom-order' ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Refresh button */}
-        <button
-          onClick={fetchShoots}
-          className="flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] border border-foreground/20 px-3 py-2 hover:bg-foreground/[0.05] transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading && activeTab !== 'custom-order' ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
-      </header>
-
-      {/* Main Container */}
-      <div className="flex-1 max-w-7xl w-full mx-auto px-6 sm:px-12 py-6 flex flex-col overflow-hidden min-h-0">
-        {/* Controls Row: Tabs & Search */}
-        <div className="flex-none flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-foreground/10 pb-4 mb-4">
-          {/* Tabs */}
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto min-h-0 py-6 space-y-6 pb-12 no-scrollbar">
+          {/* Tab Controls & Search Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-foreground/[0.02] border border-foreground/10 p-4">
+          <div className="flex flex-wrap items-center gap-1">
             <button
               onClick={() => handleTabChange('upcoming')}
-              className={`px-4 py-2 text-[11px] uppercase tracking-[0.2em] border transition-all cursor-pointer ${
+              className={`px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-all rounded-none cursor-pointer flex items-center gap-2 ${
                 activeTab === 'upcoming'
-                  ? 'bg-foreground text-background border-foreground font-semibold shadow-sm'
-                  : 'bg-transparent text-foreground/50 border-foreground/15 hover:text-foreground hover:border-foreground/30'
+                  ? 'bg-foreground text-background font-semibold shadow-sm'
+                  : 'text-foreground/50 hover:text-foreground hover:bg-foreground/5'
               }`}
             >
+              <Calendar className="w-3.5 h-3.5" />
               Upcoming Shoots ({activeTab === 'upcoming' ? totalCount : '...'})
             </button>
 
             <button
               onClick={() => handleTabChange('completed')}
-              className={`px-4 py-2 text-[11px] uppercase tracking-[0.2em] border transition-all cursor-pointer ${
+              className={`px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-all rounded-none cursor-pointer flex items-center gap-2 ${
                 activeTab === 'completed'
-                  ? 'bg-foreground text-background border-foreground font-semibold shadow-sm'
-                  : 'bg-transparent text-foreground/50 border-foreground/15 hover:text-foreground hover:border-foreground/30'
+                  ? 'bg-foreground text-background font-semibold shadow-sm'
+                  : 'text-foreground/50 hover:text-foreground hover:bg-foreground/5'
               }`}
             >
+              <CheckCircle2 className="w-3.5 h-3.5" />
               Completed ({activeTab === 'completed' ? totalCount : '...'})
             </button>
 
             <button
               onClick={() => handleTabChange('custom-order')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-[11px] uppercase tracking-[0.2em] border transition-all cursor-pointer ${
+              className={`px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-all rounded-none cursor-pointer flex items-center gap-2 ${
                 activeTab === 'custom-order'
-                  ? 'bg-foreground text-background border-foreground font-semibold shadow-sm'
-                  : 'bg-foreground/[0.03] text-foreground/70 border-foreground/25 hover:text-foreground hover:border-foreground/40'
+                  ? 'bg-foreground text-background font-semibold shadow-sm'
+                  : 'text-foreground/50 hover:text-foreground hover:bg-foreground/5'
               }`}
             >
-              <Sparkles className="w-3 h-3 text-emerald-400" />
-              <span>+ Create Custom Order</span>
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              + Create Custom Order
             </button>
           </div>
 
-          {/* Search Box (only shown for shoots listing) */}
           {activeTab !== 'custom-order' && (
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/40" />
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Search client, email, phone..."
-                className="w-full bg-foreground/[0.03] border border-foreground/20 pl-9 pr-3 py-2 text-[11px] placeholder:text-foreground/30 focus:outline-none focus:border-foreground transition-colors"
+                placeholder="Search shoots..."
+                className="w-full bg-background border border-foreground/15 pl-8 pr-8 py-1.5 text-foreground font-mono text-[10px] placeholder:text-foreground/30 focus:outline-none focus:border-foreground/40 transition-colors"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           )}
         </div>
 
         {/* Main Content Area */}
         {activeTab === 'custom-order' ? (
-          <div className="flex-1 overflow-hidden min-h-0">
+          <div>
             <CustomOrderCreator
               onOrderCreated={() => {
                 fetchShoots();
@@ -432,19 +463,19 @@ export default function ShootsPage() {
             />
           </div>
         ) : loading ? (
-          <div className="py-20 text-center text-foreground/40 text-xs">
+          <div className="py-20 text-center text-foreground/40 text-xs font-mono">
             Loading shoots data...
           </div>
         ) : error ? (
-          <div className="bg-red-500/10 border border-red-500/20 p-6 text-center text-red-400 text-xs">
+          <div className="bg-red-500/10 border border-red-500/20 p-6 text-center text-red-400 text-xs font-mono">
             {error}
           </div>
         ) : shoots.length === 0 ? (
-          <div className="py-20 text-center border border-dashed border-foreground/15 p-8 text-foreground/40 text-xs">
+          <div className="py-20 text-center border border-dashed border-foreground/15 p-8 text-foreground/40 text-xs font-mono">
             No {activeTab} shoots found.
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto pr-2 space-y-4 min-h-0 custom-scrollbar pb-4">
+          <div className="space-y-4 font-mono">
             {shoots.map((shoot) => {
               const isCompleted =
                 activeTab === 'completed' ||
@@ -463,6 +494,7 @@ export default function ShootsPage() {
                 : SLOT_LABELS[shoot.slot as keyof typeof SLOT_LABELS] || shoot.slot;
 
               const cleanTier = getCleanTierName(shoot.tier);
+              const parsedTier = parseBookingTier(shoot.tier);
               const completionNote = shoot.add_ons?.find((a) => String(a).startsWith('Completed:'));
               const displayAddOns = (shoot.add_ons || []).filter((a) => !String(a).startsWith('Completed:'));
 
@@ -533,9 +565,20 @@ export default function ShootsPage() {
                     {/* Shoot Details & Addons */}
                     <div className="space-y-1.5">
                       <p className="text-[9px] uppercase tracking-[0.2em] text-foreground/40">Package Details</p>
-                      <p className="text-xs text-foreground font-medium">
-                        {shoot.category} — {cleanTier}
-                      </p>
+                      {parsedTier.shootName ? (
+                        <div>
+                          <p className="text-xs text-foreground font-semibold">
+                            {parsedTier.shootName}
+                          </p>
+                          <p className="text-[10px] text-foreground/60">
+                            {getCategoryLabel(shoot.category)} · {parsedTier.tier}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-foreground font-medium">
+                          {getCategoryLabel(shoot.category)} — {cleanTier}
+                        </p>
+                      )}
                       {displayAddOns && displayAddOns.length > 0 ? (
                         <p className="text-[10px] text-foreground/60">
                           Add-ons: {displayAddOns.map(formatAddOnName).join(', ')}
@@ -593,11 +636,19 @@ export default function ShootsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-foreground/10">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
-                        onClick={() => setSelectedBookingDetails(shoot)}
+                        onClick={() => router.push(`/admin/shoots/${shoot.id}`)}
                         className="text-[10px] uppercase tracking-[0.15em] text-foreground hover:text-foreground/80 flex items-center gap-1.5 transition-colors cursor-pointer border border-foreground/20 px-3 py-1.5 bg-foreground/[0.03] hover:bg-foreground/[0.08]"
                       >
                         <FileText className="w-3.5 h-3.5 text-foreground/70" />
                         View Booking Details
+                      </button>
+
+                      <button
+                        onClick={() => router.push(`/admin/shoots/${shoot.id}?edit=true`)}
+                        className="text-[10px] uppercase tracking-[0.15em] text-foreground hover:text-foreground/80 flex items-center gap-1.5 transition-colors cursor-pointer border border-foreground/20 px-3 py-1.5 bg-foreground/[0.03] hover:bg-foreground/[0.08]"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-foreground/70" />
+                        Edit Shoot
                       </button>
 
                       {!isCompleted && shoot.status !== 'cancelled' && (
@@ -690,9 +741,9 @@ export default function ShootsPage() {
           </div>
         )}
 
-        {/* Fixed Pagination Controls */}
+        {/* Pagination Controls */}
         {activeTab !== 'custom-order' && totalPages > 1 && (
-          <div className="flex-none flex items-center justify-between pt-3 mt-2 border-t border-foreground/10 text-xs font-mono">
+          <div className="flex items-center justify-between pt-4 border-t border-foreground/10 text-xs font-mono pb-8">
             <span className="text-foreground/50 text-[11px]">
               Page {page} of {totalPages} ({totalCount} total shoots)
             </span>
@@ -716,6 +767,7 @@ export default function ShootsPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Complete Shoot with Offline Payment Modal */}
@@ -1060,398 +1112,6 @@ export default function ShootsPage() {
         )}
       </AnimatePresence>
 
-      {/* Full Booking Details Modal (Non-Scrollable Compact Layout) */}
-      <AnimatePresence>
-        {selectedBookingDetails && (() => {
-          const modalFin = calculateBookingFinancials({
-            total_price: selectedBookingDetails.total_price || 0,
-            add_ons: selectedBookingDetails.add_ons || [],
-          });
-
-          return (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-6"
-              onClick={() => setSelectedBookingDetails(null)}
-            >
-              <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 8 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 p-5 sm:p-6 rounded-none space-y-4 shadow-2xl overflow-hidden font-mono text-foreground flex flex-col justify-between"
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between border-b border-foreground/15 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <FileText className="w-4 h-4 text-foreground/70" />
-                    <div>
-                      <h3 className="text-sm sm:text-base font-serif font-semibold text-foreground leading-none">
-                        Booking Details &amp; Financial Receipt
-                      </h3>
-                    <p className="text-[9px] text-foreground/40 uppercase tracking-widest mt-0.5">
-                      ID: {selectedBookingDetails.id}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const isModalShootCompleted =
-                      selectedBookingDetails.date < todayStr ||
-                      (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
-                      selectedBookingDetails.status === 'completed';
-
-                    return isModalShootCompleted ? (
-                      <span className="text-[9px] uppercase tracking-[0.15em] px-2.5 py-0.5 border bg-emerald-500/15 text-emerald-400 border-emerald-500/40 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" />
-                        Completed &amp; Settled
-                      </span>
-                    ) : (
-                      <span
-                        className={`text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 border ${
-                          selectedBookingDetails.status === 'confirmed'
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : selectedBookingDetails.status === 'pending'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                              : 'bg-foreground/10 text-foreground/50 border-foreground/20'
-                        }`}
-                      >
-                        {selectedBookingDetails.status}
-                      </span>
-                    );
-                  })()}
-
-                  <button
-                    onClick={() => setSelectedBookingDetails(null)}
-                    aria-label="Close"
-                    className="p-2 bg-transparent text-foreground/50 hover:text-foreground transition-colors border-0 outline-none focus:outline-none cursor-pointer"
-                  >
-                    <X className="w-5 h-5 stroke-[1.5]" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Side-by-Side 2-Column Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[11px]">
-                {/* Left Column: Client & Shoot Parameters */}
-                <div className="space-y-3 bg-foreground/[0.02] border border-foreground/10 p-3">
-                  <div className="space-y-1 border-b border-foreground/10 pb-2">
-                    <p className="text-[9px] uppercase tracking-[0.2em] text-foreground/40 font-semibold">Client Contact</p>
-                    <p className="text-xs font-serif font-medium text-foreground">{selectedBookingDetails.name}</p>
-                    <p className="text-foreground/70 flex items-center gap-1.5 truncate">
-                      <Mail className="w-3 h-3 text-foreground/40 shrink-0" />
-                      <a href={`mailto:${selectedBookingDetails.email}`} className="hover:underline truncate">{selectedBookingDetails.email}</a>
-                    </p>
-                    <p className="text-foreground/70 flex items-center gap-1.5">
-                      <Phone className="w-3 h-3 text-foreground/40 shrink-0" />
-                      <a href={`tel:${selectedBookingDetails.phone}`} className="hover:underline">{selectedBookingDetails.phone}</a>
-                    </p>
-                  </div>
-
-                  <div className="space-y-1 pt-0.5">
-                    <p className="text-[9px] uppercase tracking-[0.2em] text-foreground/40 font-semibold">Shoot Parameters</p>
-                    <p className="text-foreground/80">
-                      Category: <span className="text-foreground font-medium capitalize">{selectedBookingDetails.category}</span>
-                    </p>
-                    <p className="text-foreground/80">
-                      Package: <span className="text-foreground font-medium">{getCleanTierName(selectedBookingDetails.tier)}</span>
-                    </p>
-                    <p className="text-foreground/80">
-                      Date: <span className="text-foreground font-medium">{new Date(selectedBookingDetails.date.split('-').map(Number)[0], selectedBookingDetails.date.split('-').map(Number)[1] - 1, selectedBookingDetails.date.split('-').map(Number)[2]).toDateString()}</span>
-                    </p>
-                    <p className="text-foreground/80">
-                      Time Slot: <span className="text-foreground font-medium">{selectedBookingDetails.full_day || selectedBookingDetails.slot === 'full_day' ? 'Full Day Coverage' : `${formatTimeLabel(getBookingStartTime(selectedBookingDetails))} – ${formatTimeLabel(getBookingEndTime(selectedBookingDetails))}`}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right Column: Financial Ledger */}
-                {(() => {
-                  const fin = calculateBookingFinancials({
-                    total_price: selectedBookingDetails.total_price || 0,
-                    add_ons: selectedBookingDetails.add_ons || [],
-                  });
-                  const isModalShootCompleted =
-                    selectedBookingDetails.date < todayStr ||
-                    (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
-                    selectedBookingDetails.status === 'completed';
-
-                  return (
-                    <div className="space-y-2 bg-foreground/[0.03] border border-foreground/15 p-3 flex flex-col justify-between">
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.2em] text-foreground/50 font-semibold mb-2">Financial Ledger</p>
-                        <div className="space-y-1.5 text-[11px]">
-                          <div className="flex justify-between text-foreground/70">
-                            <span>Base Package:</span>
-                            <span>GHS {fin.basePrice.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-foreground/70">
-                            <span>Add-ons Total (100% upfront):</span>
-                            <span>GHS {fin.addOnsTotal.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-foreground font-semibold pt-1 border-t border-foreground/10">
-                            <span>Total Shoot Price:</span>
-                            <span>GHS {selectedBookingDetails.total_price.toLocaleString()}</span>
-                          </div>
-                          {isModalShootCompleted ? (
-                            <div className="flex justify-between text-emerald-400 font-medium">
-                              <span>Total Settled &amp; Paid:</span>
-                              <span>GHS {Number(selectedBookingDetails.total_price || 0).toLocaleString()}</span>
-                            </div>
-                          ) : (
-                            <div className="flex justify-between text-emerald-400 font-medium">
-                              <span>Deposit Paid Upfront:</span>
-                              <span>GHS {fin.depositPaid.toLocaleString()}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {isModalShootCompleted ? (
-                        <div className="flex justify-between items-center text-emerald-400 font-semibold pt-2 border-t border-emerald-500/20 text-xs">
-                          <span>Balance Due:</span>
-                          <span className="flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            GHS 0.00 (Fully Settled)
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between items-center text-amber-400 font-semibold pt-2 border-t border-foreground/15 text-xs">
-                          <span>Balance Due on Shoot:</span>
-                          <span>GHS {fin.remainingBalance.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Completed Shoot Banner */}
-              {(() => {
-                const isModalShootCompleted =
-                  selectedBookingDetails.date < todayStr ||
-                  (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
-                  selectedBookingDetails.status === 'completed';
-
-                if (!isModalShootCompleted) return null;
-
-                const completionNote = selectedBookingDetails.add_ons?.find((a) => String(a).startsWith('Completed:'));
-
-                return (
-                  <div className="bg-emerald-500/[0.08] border border-emerald-500/30 p-3.5 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between text-emerald-400 font-semibold">
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Shoot Completed &amp; Financials Settled
-                      </span>
-                      <span className="text-[9px] uppercase tracking-wider bg-emerald-500/20 px-2 py-0.5 border border-emerald-500/40">
-                        Archived
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-foreground/70 leading-relaxed">
-                      This photography session is marked complete. All outstanding balances have been settled offline or upfront.
-                    </p>
-                    {completionNote && (
-                      <div className="pt-1.5 mt-1 border-t border-emerald-500/20 text-[11px] text-emerald-300 font-mono flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5 shrink-0" />
-                        <span>{completionNote}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Add-ons & Refund Banner Section */}
-              {(() => {
-                const fin = calculateBookingFinancials({
-                  total_price: selectedBookingDetails.total_price || 0,
-                  add_ons: selectedBookingDetails.add_ons || [],
-                });
-
-                const [y, m, d] = selectedBookingDetails.date.split('-').map(Number);
-                const shootDateObj = new Date(y, m - 1, d); shootDateObj.setHours(0, 0, 0, 0);
-                const todayObj = new Date(); todayObj.setHours(0, 0, 0, 0);
-                const diffDays = Math.ceil((shootDateObj.getTime() - todayObj.getTime()) / (1000 * 60 * 60 * 24));
-                const isRefundEligible = diffDays >= 2;
-                const isRefunded = refundedShootIds.includes(selectedBookingDetails.id);
-                const displayAddOns = (selectedBookingDetails.add_ons || []).filter((a) => !String(a).startsWith('Completed:'));
-
-                return (
-                  <div className="space-y-2 text-xs">
-                    {/* Add-ons List */}
-                    <div className="flex items-center justify-between bg-foreground/[0.02] border border-foreground/10 px-3 py-2 text-[11px]">
-                      <span className="text-foreground/50 uppercase text-[9px] tracking-wider font-semibold">Selected Add-ons:</span>
-                      <span className="text-foreground/80 font-medium">
-                        {displayAddOns && displayAddOns.length > 0
-                          ? displayAddOns.map(formatAddOnName).join(', ')
-                          : 'None'}
-                      </span>
-                    </div>
-
-                    {/* Add-on Refund Status (If add-ons exist) */}
-                    {fin.addOnsTotal > 0 && selectedBookingDetails.status !== 'completed' && (
-                      <div className="bg-foreground/[0.02] border border-foreground/10 p-2.5">
-                        {isRefunded ? (
-                          <div className="flex items-center justify-between text-emerald-400 text-[11px]">
-                            <span className="flex items-center gap-1 font-medium">
-                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                              Add-on Refund Processed (GHS {fin.addOnsTotal.toLocaleString()})
-                            </span>
-                            <span className="text-[9px] text-foreground/40">Completed</span>
-                          </div>
-                        ) : isRefundEligible ? (
-                          <div className="flex items-center justify-between gap-2 text-amber-300 text-[11px]">
-                            <span className="font-medium">
-                              Eligible for Add-on Refund: GHS {fin.addOnsTotal.toLocaleString()} ({diffDays}d notice)
-                            </span>
-                            <button
-                              onClick={() => handleProcessAddOnRefund(selectedBookingDetails)}
-                              disabled={processingRefundId === selectedBookingDetails.id}
-                              className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 text-[9px] uppercase tracking-wider font-semibold transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-                            >
-                              {processingRefundId === selectedBookingDetails.id
-                                ? 'Processing...'
-                                : 'Mark Refund Processed'}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between text-foreground/50 text-[11px]">
-                            <span>Add-on Refund Ineligible (Notice &lt; 2 days)</span>
-                            <span className="text-[9px] text-foreground/40">GHS {fin.addOnsTotal.toLocaleString()} Retained</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Payment Link Dispatch via WhatsApp (Full or Half/Deposit) */}
-              {(() => {
-                const isModalShootCompleted =
-                  selectedBookingDetails.date < todayStr ||
-                  (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
-                  selectedBookingDetails.status === 'completed';
-
-                if (isModalShootCompleted || selectedBookingDetails.status === 'cancelled') return null;
-
-                return (
-                  <div className="space-y-2 bg-foreground/[0.02] border border-foreground/15 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] uppercase tracking-[0.2em] text-foreground/60 font-semibold flex items-center gap-1.5">
-                        <Sparkles className="w-3 h-3 text-emerald-400" />
-                        Client Payment Links (WhatsApp Dispatch)
-                      </span>
-                      <span className="text-[8px] text-foreground/40 font-mono">
-                        Paystack 1.95% fee incurred by client
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                      {/* Send Initial Deposit Link (50% Base + 100% Add-ons) */}
-                      <button
-                        type="button"
-                        disabled={sendingEmailId !== null}
-                        onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'deposit')}
-                        className="w-full py-2 px-3 bg-foreground/[0.05] hover:bg-foreground/[0.1] text-foreground border border-foreground/25 font-mono text-[9px] uppercase tracking-[0.15em] font-semibold transition-all flex items-center justify-between gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <MessageSquare className="w-3 h-3 text-foreground/70" />
-                          Send Initial Deposit (50% Base + Add-ons)
-                        </span>
-                        <span className="font-semibold">
-                          GHS {modalFin.depositPaid.toLocaleString()}
-                        </span>
-                      </button>
-
-                      {/* Send Full Payment Link */}
-                      <button
-                        type="button"
-                        disabled={sendingEmailId !== null}
-                        onClick={() => handleSendWhatsAppLink(selectedBookingDetails, 'full')}
-                        className="w-full py-2 px-3 bg-foreground text-background font-mono text-[9px] uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 transition-all flex items-center justify-between gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <MessageSquare className="w-3 h-3" />
-                          Send Full Payment
-                        </span>
-                        <span className="font-semibold">
-                          GHS {Number(selectedBookingDetails.total_price || 0).toLocaleString()}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Modal Footer with Actions */}
-              {(() => {
-                const isModalShootCompleted =
-                  selectedBookingDetails.date < todayStr ||
-                  (selectedBookingDetails.tier && selectedBookingDetails.tier.includes('[Completed]')) ||
-                  selectedBookingDetails.status === 'completed';
-
-                return (
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-foreground/10 text-xs">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a
-                        href={`https://wa.me/${selectedBookingDetails.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${selectedBookingDetails.name}, regarding your upcoming BYNK photography shoot...`)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[9px] uppercase tracking-wider text-foreground/70 hover:text-foreground border border-foreground/20 px-2.5 py-1 flex items-center gap-1 transition-colors"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        WhatsApp
-                      </a>
-
-                      {!isModalShootCompleted && selectedBookingDetails.status !== 'cancelled' && (
-                        <button
-                          onClick={() => {
-                            const b = selectedBookingDetails;
-                            setSelectedBookingDetails(null);
-                            handleOpenCompleteModal(b);
-                          }}
-                          className="text-[9px] uppercase tracking-wider text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-3 h-3" />
-                          Complete Shoot
-                        </button>
-                      )}
-
-                      {!isModalShootCompleted && selectedBookingDetails.status !== 'cancelled' && (
-                        <button
-                          onClick={() => {
-                            const b = selectedBookingDetails;
-                            setSelectedBookingDetails(null);
-                            setCancellingShoot(b);
-                          }}
-                          className="text-[9px] uppercase tracking-wider text-red-400 hover:text-red-300 border border-red-500/30 px-2.5 py-1 flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <AlertCircle className="w-3 h-3" />
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => setSelectedBookingDetails(null)}
-                      className="px-4 py-1.5 bg-foreground text-background text-[10px] uppercase tracking-widest font-semibold hover:bg-foreground/90 transition-colors cursor-pointer"
-                    >
-                      Close Receipt
-                    </button>
-                  </div>
-                );
-              })()}
-            </motion.div>
-          </motion.div>
-          );
-        })()}
-      </AnimatePresence>
-    </main>
+    </div>
   );
 }

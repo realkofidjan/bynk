@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { parseBookingTier, getCleanTierName } from '@/lib/booking-types';
 
 interface ClientGalleryItem {
   slug: string;
@@ -201,7 +202,15 @@ export default function UploadPage() {
 
       if (shootsRes && shootsRes.ok) {
         const shootsData = await shootsRes.json();
-        setPastBookings(shootsData.shoots || []);
+        const mapped = (shootsData.shoots || []).map((s: any) => {
+          const parsed = parseBookingTier(s.tier);
+          const pkg = parsed.shootName || parsed.rawDisplay || getCleanTierName(s.tier) || s.category || 'Shoot';
+          return {
+            ...s,
+            package_name: pkg,
+          };
+        });
+        setPastBookings(mapped);
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -540,48 +549,52 @@ export default function UploadPage() {
   );
 
   return (
-    <main className="fixed inset-0 z-10 overflow-y-auto bg-background text-foreground pt-24 pb-20 px-4 sm:px-8 lg:px-16 selection:bg-foreground/20 font-sans overscroll-contain">
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Header Bar */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-foreground/15 pb-6">
-          <div>
-            <div className="flex items-center gap-2 text-foreground/40 font-mono text-[10px] uppercase tracking-[0.3em] mb-1">
-              <FolderGit2 className="w-3.5 h-3.5" /> Client Gallery & GitHub Sync
+    <div className="h-full flex flex-col bg-background text-foreground px-4 sm:px-8 lg:px-12 selection:bg-foreground/20 font-sans overflow-hidden">
+      <div className="max-w-6xl mx-auto w-full flex flex-col h-full min-h-0">
+        {/* Fixed Content Header */}
+        <div className="flex-none pt-8 pb-6 border-b border-foreground/15">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-foreground/40 font-mono text-[10px] uppercase tracking-[0.3em] mb-1 font-medium">
+                <FolderGit2 className="w-3.5 h-3.5" /> Client Gallery &amp; GitHub Sync
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif tracking-tight text-foreground">
+                Upload Gallery Portal
+              </h1>
+              <p className="text-xs font-mono text-foreground/50 mt-1">
+                Passcode-protected client galleries &amp; assets synced to{' '}
+                <code className="text-foreground font-semibold">realkofidjan/bynk (main)</code>
+              </p>
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif tracking-tight text-foreground">
-              Upload Gallery Portal
-            </h1>
-            <p className="text-xs font-mono text-foreground/50 mt-1">
-              Passcode-protected client galleries & assets synced to{' '}
-              <code className="text-foreground font-semibold">realkofidjan/bynk (main)</code>
-            </p>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                if (!passcode) generateRandomPasscode();
-                setShowCreateModal(true);
-              }}
-              className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer font-semibold"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Client Gallery
-            </button>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="p-2.5 border border-foreground/20 hover:bg-foreground/5 transition-colors cursor-pointer"
-              title="Refresh galleries, uploads and past shoots"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-foreground/70 ${loading ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  if (!passcode) generateRandomPasscode();
+                  setShowCreateModal(true);
+                }}
+                className="px-4 py-2.5 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-foreground/90 transition-all shadow-sm flex items-center gap-2 rounded-none cursor-pointer font-semibold"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Client Gallery
+              </button>
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="p-2.5 border border-foreground/20 hover:bg-foreground/5 transition-colors cursor-pointer"
+                title="Refresh galleries, uploads and past shoots"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-foreground/70 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Status Toast */}
-        <AnimatePresence>
-          {statusMessage && (
+        {/* Scrollable Content Body */}
+        <div className="flex-1 overflow-y-auto min-h-0 py-6 space-y-6 pb-12 no-scrollbar">
+          {/* Status Toast */}
+          <AnimatePresence>
+            {statusMessage && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -881,6 +894,7 @@ export default function UploadPage() {
             )}
           </div>
         )}
+        </div>
 
         {/* MODAL: CREATE CLIENT GALLERY */}
         <AnimatePresence>
@@ -1415,6 +1429,6 @@ export default function UploadPage() {
           )}
         </AnimatePresence>
       </div>
-    </main>
+    </div>
   );
 }

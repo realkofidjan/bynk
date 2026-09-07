@@ -13,8 +13,16 @@ const navItems = [
 export default function Navigation() {
   const pathname = usePathname();
 
+  // Hide the public site header completely on all admin routes
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   return (
     <>
+      {/* Soft gradient backdrop so page content doesn't bleed into the original header when scrolled */}
+      <div className="fixed top-0 left-0 right-0 h-20 sm:h-24 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none z-[150]" />
+
       {/* Top Left Navigation Links */}
       <nav
         id="main-navigation"

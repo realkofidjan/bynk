@@ -15,12 +15,26 @@ async function computeExpectedToken(password: string): Promise<string> {
     .join('');
 }
 
-/** Routes that require admin authentication */
-const PROTECTED_PAGE_PREFIXES = ['/upload', '/shoots'];
+/** Admin page routes that require authentication (all /admin/* EXCEPT /admin itself) */
+const PROTECTED_PAGE_PREFIXES = ['/admin/shoots', '/admin/upload', '/admin/schedule'];
+
+/** Legacy routes — redirect to admin login */
+const LEGACY_ROUTES = ['/upload', '/shoots', '/schedule'];
+
+/** API routes that require admin authentication */
 const PROTECTED_API_PREFIXES = ['/api/upload', '/api/shoots'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Redirect legacy routes to admin
+  const isLegacyRoute = LEGACY_ROUTES.some((r) => pathname === r || pathname.startsWith(r + '/'));
+  if (isLegacyRoute) {
+    // Map old route to new admin route
+    const newPath = '/admin' + pathname;
+    const url = new URL(newPath, request.url);
+    return NextResponse.redirect(url);
+  }
 
   const isProtectedPage = PROTECTED_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
   const isProtectedApi = PROTECTED_API_PREFIXES.some((p) => pathname.startsWith(p));
@@ -60,5 +74,15 @@ function denyAccess(request: NextRequest, isApi: boolean): NextResponse {
 }
 
 export const config = {
-  matcher: ['/upload/:path*', '/shoots/:path*', '/api/upload/:path*', '/api/shoots/:path*'],
+  matcher: [
+    '/admin/shoots/:path*',
+    '/admin/upload/:path*',
+    '/admin/schedule/:path*',
+    '/api/upload/:path*',
+    '/api/shoots/:path*',
+    // Legacy route redirects
+    '/upload/:path*',
+    '/shoots/:path*',
+    '/schedule/:path*',
+  ],
 };

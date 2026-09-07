@@ -11,7 +11,7 @@ function AdminLoginForm() {
   const [error, setError] = useState('');
   const searchParams = useSearchParams();
   const router = useRouter();
-  const redirectTo = searchParams.get('redirect') || '/upload';
+  const redirectTo = searchParams.get('redirect') || '/admin/shoots';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 import { ChronoSelect } from '@/components/ui/chrono-select';
 import {
@@ -777,7 +778,26 @@ function BookingFormLightbox({
         return;
       }
 
-      // 3. Redirect client to Paystack checkout page
+      // 3. Save pending booking locally so user can resume if needed
+      try {
+        localStorage.setItem(
+          'bynk_pending_booking',
+          JSON.stringify({
+            bookingId: result.bookingId,
+            email,
+            name,
+            category: categoryLabel,
+            tier: tierName,
+            date: dateKeyStr,
+            totalPrice: totalPriceNum,
+            createdAt: Date.now(),
+          })
+        );
+      } catch {
+        // Ignore localStorage error
+      }
+
+      // 4. Redirect client to Paystack checkout page
       window.location.href = paystackResult.authorizationUrl;
     } catch (err) {
       console.error('Booking submit error:', err);
@@ -1259,6 +1279,30 @@ export default function BookPage() {
     tierPrice: string;
   } | null>(null);
 
+  const [pendingBooking, setPendingBooking] = useState<{
+    bookingId: string;
+    category: string;
+    tier: string;
+    date: string;
+    name: string;
+  } | null>(null);
+
+  // Check localStorage for pending incomplete bookings
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('bynk_pending_booking');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Only consider bookings from the last 7 days
+        if (parsed && parsed.bookingId && (!parsed.createdAt || Date.now() - parsed.createdAt < 7 * 86400000)) {
+          setPendingBooking(parsed);
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
+
   const [mobileCardIndex, setMobileCardIndex] = useState(0);
   const mobileCarouselRef = useRef<HTMLDivElement>(null);
 
@@ -1303,7 +1347,44 @@ export default function BookPage() {
       <div className="fixed inset-0 pointer-events-none bg-gradient-to-br from-foreground/[0.02] via-transparent to-transparent" />
 
       {/* Content container */}
-      <div className="relative z-10 flex flex-col h-full pt-20 sm:pt-24 pb-6 px-4 sm:px-10 lg:px-16 overflow-hidden">
+      <div className="relative z-10 flex flex-col h-full pt-24 sm:pt-28 pb-6 px-4 sm:px-10 lg:px-16 overflow-hidden">
+        {/* Pending Booking Notification Banner */}
+        {pendingBooking && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 bg-foreground/[0.03] border border-amber-500/30 p-3 sm:px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono shrink-0"
+          >
+            <div className="flex items-center gap-2 text-foreground/80">
+              <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                You have a pending booking for{' '}
+                <strong className="text-foreground">{pendingBooking.category} ({pendingBooking.tier})</strong>
+                {pendingBooking.date && ` on ${pendingBooking.date}`}.
+              </span>
+            </div>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <Link
+                href={`/book/lookup?ref=${encodeURIComponent(pendingBooking.bookingId)}`}
+                className="px-3 py-1 bg-foreground text-background text-[10px] uppercase tracking-wider font-semibold hover:bg-foreground/90 transition-colors"
+              >
+                Complete Payment
+              </Link>
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('bynk_pending_booking');
+                  } catch {}
+                  setPendingBooking(null);
+                }}
+                className="text-foreground/40 hover:text-foreground text-[10px] uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* Header row */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -1312,9 +1393,19 @@ export default function BookPage() {
           className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6 lg:mb-8 shrink-0"
         >
           <div>
-            <p className="text-foreground/40 text-[10px] font-mono uppercase tracking-[0.3em] mb-2">
-              2026 Rate Card
-            </p>
+            <div className="flex items-center gap-3 mb-2">
+              <p className="text-foreground/40 text-[10px] font-mono uppercase tracking-[0.3em]">
+                2026 Rate Card
+              </p>
+              <span className="text-foreground/20">·</span>
+              <Link
+                href="/book/lookup"
+                className="text-foreground/60 hover:text-foreground text-[10px] font-mono uppercase tracking-[0.15em] flex items-center gap-1 transition-colors group"
+              >
+                <span>Already Booked?</span>
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif tracking-tight text-foreground">
               Book a Session
             </h1>
@@ -1630,204 +1721,20 @@ export default function BookPage() {
 /* ── Paystack Payment Success Return Handler ── */
 function PaymentSuccessHandler() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const status = searchParams.get('status');
   const bookingIdParam = searchParams.get('bookingId');
   const reference = searchParams.get('reference') || searchParams.get('trxref');
-  const [open, setOpen] = useState(false);
-  const [booking, setBooking] = useState<Booking | null>(null);
 
-  const targetBookingId = bookingIdParam || (reference ? reference : null);
+  const targetBookingId = bookingIdParam || reference;
   const isPaymentSuccess =
     status === 'payment_complete' || Boolean(reference) || Boolean(bookingIdParam);
 
   useEffect(() => {
     if (isPaymentSuccess && targetBookingId) {
-      setOpen(true);
-      fetchBookingDetails(targetBookingId);
+      router.replace(`/book/success?bookingId=${encodeURIComponent(targetBookingId)}`);
     }
-  }, [isPaymentSuccess, targetBookingId]);
+  }, [isPaymentSuccess, targetBookingId, router]);
 
-  const fetchBookingDetails = async (id: string) => {
-    try {
-      const res = await fetch(`/api/bookings/${id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBooking(data.booking || null);
-      }
-    } catch (err) {
-      console.error('Failed to fetch booking details:', err);
-    }
-  };
-
-  if (!open || !targetBookingId) return null;
-
-  const handleDownloadClientIcs = () => {
-    if (!booking) return;
-    const icsContent = createIcsContent([booking], true);
-    const dateFormatted = booking.date.replace(/-/g, '');
-    downloadIcsFile(`BYNK_Shoot_Confirmation_${dateFormatted}.ics`, icsContent);
-  };
-
-  const googleCalUrl = booking ? createGoogleCalendarUrl(booking, true) : '';
-
-  const handleOpenWhatsapp = () => {
-    const message = [
-      `Hi BYNK! I have completed my 50% deposit payment on Paystack.`,
-      ``,
-      `Booking Reference: ${targetBookingId}`,
-      booking ? `Category: ${booking.category} (${booking.tier})` : '',
-      booking ? `Date: ${booking.date}` : '',
-      `Please let me know once confirmed!`,
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    window.open(
-      `https://wa.me/233205555084?text=${encodeURIComponent(message)}`,
-      '_blank'
-    );
-    setOpen(false);
-  };
-
-  const isFullDay = booking?.full_day || booking?.slot === 'full_day';
-  const startTime = booking ? getBookingStartTime(booking) : '09:00';
-  const endTime = booking ? getBookingEndTime(booking) : '17:00';
-  const timeDisplay = isFullDay
-    ? 'Full Day Coverage (Starts 9:00 AM)'
-    : `${formatTimeLabel(startTime)} – ${formatTimeLabel(endTime)}`;
-
-  const { depositPaid, remainingBalance } = calculateBookingFinancials({
-    total_price: booking?.total_price || 0,
-    add_ons: booking?.add_ons || [],
-  });
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        variants={overlayVariants}
-        initial="hidden"
-        animate="visible"
-        exit="hidden"
-        className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-8"
-        onClick={() => setOpen(false)}
-      >
-        <div className="absolute inset-0 bg-background sm:bg-black/80 sm:backdrop-blur-md" />
-
-        <motion.div
-          variants={panelVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          onClick={(e) => e.stopPropagation()}
-          className="relative w-full h-full sm:h-auto sm:max-w-lg max-h-full sm:max-h-[85vh] bg-background border-0 sm:border sm:border-foreground/20 shadow-2xl shadow-black/50 p-6 sm:p-8 rounded-none text-center space-y-5 flex flex-col justify-center items-center overflow-y-auto"
-        >
-          <div className="flex justify-center text-foreground">
-            <CheckCircle2 className="w-14 h-14 stroke-[1.5]" />
-          </div>
-
-          <div>
-            <p className="text-foreground/50 text-[9px] font-mono uppercase tracking-[0.3em] mb-1 font-medium">
-              Payment Successful & Confirmed
-            </p>
-            <h2 className="text-2xl font-serif tracking-tight text-foreground">
-              50% Deposit Received!
-            </h2>
-          </div>
-
-          <p className="text-foreground/70 text-xs font-mono leading-relaxed">
-            Thank you! Your booking deposit has been processed securely via Paystack. Your shoot slot is officially reserved.
-          </p>
-
-          {/* Booking Summary Card */}
-          {booking && (
-            <div className="bg-foreground/[0.03] border border-foreground/15 p-4 text-left font-mono text-[11px] space-y-2">
-              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
-                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Client:</span>
-                <span className="text-foreground font-semibold">{booking.name}</span>
-              </div>
-              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
-                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Package:</span>
-                <span className="text-foreground">{booking.category} ({getCleanTierName(booking.tier)})</span>
-              </div>
-              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
-                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Date & Time:</span>
-                <span className="text-foreground">{booking.date} ({timeDisplay})</span>
-              </div>
-              {booking.add_ons && booking.add_ons.length > 0 && (
-                <div className="flex justify-between border-b border-foreground/10 pb-1.5">
-                  <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Add-ons (Paid 100%):</span>
-                  <span className="text-foreground font-medium text-right max-w-[220px]">
-                    {booking.add_ons.map(formatAddOnName).join(', ')}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between border-b border-foreground/10 pb-1.5 pt-1">
-                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">Total Shoot Price:</span>
-                <span className="text-foreground font-bold">GHS {booking.total_price.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between border-b border-foreground/10 pb-1.5">
-                <span className="text-foreground/50 uppercase tracking-wider text-[9px]">
-                  {booking.add_ons && booking.add_ons.length > 0
-                    ? 'Deposit Paid (50% Base + 100% Add-ons):'
-                    : '50% Deposit Paid:'}
-                </span>
-                <span className="text-emerald-500 font-bold">GHS {depositPaid.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-xs pt-0.5">
-                <span className="text-foreground/60">Balance Due on Shoot Day:</span>
-                <span className="text-foreground font-semibold">GHS {remainingBalance.toLocaleString()}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Device Calendar Sync Section */}
-          <div className="bg-foreground/[0.02] border border-foreground/10 p-3.5 text-left space-y-2">
-            <p className="text-[9px] font-mono uppercase tracking-[0.25em] text-foreground/50 font-medium">
-              Sync Shoot to Device Calendar:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadClientIcs}
-                disabled={!booking}
-                className="py-2.5 px-3 bg-foreground text-background font-mono text-[10px] uppercase tracking-[0.15em] hover:bg-foreground/90 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Apple / iCal (.ics)
-              </button>
-
-              <a
-                href={googleCalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`py-2.5 px-3 bg-foreground/[0.05] text-foreground border border-foreground/20 font-mono text-[10px] uppercase tracking-[0.15em] hover:bg-foreground/[0.1] transition-colors flex items-center justify-center gap-2 cursor-pointer ${
-                  !booking ? 'pointer-events-none opacity-40' : ''
-                }`}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Google Calendar
-              </a>
-            </div>
-          </div>
-
-          <div className="pt-1 space-y-2">
-            <button
-              onClick={handleOpenWhatsapp}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-[10px] uppercase tracking-[0.25em] transition-colors shadow-sm cursor-pointer"
-            >
-              Send Confirmation to WhatsApp
-            </button>
-
-            <button
-              onClick={() => setOpen(false)}
-              className="w-full py-2 bg-transparent text-foreground/40 font-mono text-[9px] uppercase tracking-[0.2em] hover:text-foreground transition-colors cursor-pointer"
-            >
-              Close
-            </button>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
+  return null;
 }

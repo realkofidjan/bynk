@@ -23,6 +23,7 @@ export type Booking = {
   full_day: boolean;
   start_time?: string; // e.g. "09:00"
   end_time?: string; // e.g. "10:30"
+  notes?: string;
   created_at: string;
 };
 
@@ -109,6 +110,29 @@ export const ADDON_PRICES: Record<string, number> = {
 export function formatAddOnName(str: string): string {
   if (!str) return '';
   return ADDON_NAME_MAP[str.toLowerCase()] || str;
+}
+
+export const ALL_ADDONS = Object.entries(ADDON_NAME_MAP).map(([id, name]) => ({
+  id,
+  name,
+  price: ADDON_PRICES[id] || 0,
+}));
+
+export function getAddOnPrice(addonStr: string): number {
+  if (!addonStr) return 0;
+  const key = addonStr.toLowerCase().trim();
+  if (ADDON_PRICES[key]) return ADDON_PRICES[key];
+  for (const [id, price] of Object.entries(ADDON_PRICES)) {
+    if (key === id || key.includes(id)) return price;
+  }
+  for (const [id, name] of Object.entries(ADDON_NAME_MAP)) {
+    if (name.toLowerCase() === key || key.includes(name.toLowerCase())) {
+      return ADDON_PRICES[id] || 0;
+    }
+  }
+  const match = addonStr.match(/GHS\s*(\d+)/i);
+  if (match) return Number(match[1]);
+  return 0;
 }
 
 /** Calculate exact deposit paid (50% base + 100% add-ons) and remaining balance */
@@ -255,10 +279,205 @@ export type AvailableSlot = {
   durationMinutes: number;
 };
 
+export interface RateTier {
+  name: string;
+  priceNum: number;
+  durationMinutes?: number;
+  features?: string[];
+  fullDay?: boolean;
+}
+
+export interface RateCategory {
+  id: string;
+  label: string;
+  tiers: RateTier[];
+}
+
+export const RATE_CATEGORIES: RateCategory[] = [
+  {
+    id: 'portraits',
+    label: 'Studio Portraits',
+    tiers: [
+      { name: 'Signature', priceNum: 1300, durationMinutes: 60 },
+      { name: 'Lux', priceNum: 2100, durationMinutes: 120 },
+      { name: 'Platinum', priceNum: 3050, durationMinutes: 180 },
+      { name: 'Custom', priceNum: 2100, durationMinutes: 120 },
+    ],
+  },
+  {
+    id: 'location-portraits',
+    label: 'Location Portraits',
+    tiers: [
+      { name: 'Signature', priceNum: 1700, durationMinutes: 60 },
+      { name: 'Lux', priceNum: 2350, durationMinutes: 90 },
+      { name: 'Platinum', priceNum: 3400, durationMinutes: 150 },
+      { name: 'Custom', priceNum: 2350, durationMinutes: 90 },
+    ],
+  },
+  {
+    id: 'weddings',
+    label: 'Weddings',
+    tiers: [
+      { name: 'Signature', priceNum: 4100, durationMinutes: 360, fullDay: true },
+      { name: 'Lux', priceNum: 6050, durationMinutes: 480, fullDay: true },
+      { name: 'Platinum', priceNum: 8200, durationMinutes: 600, fullDay: true },
+      { name: 'Custom', priceNum: 6050, durationMinutes: 480, fullDay: true },
+    ],
+  },
+  {
+    id: 'events',
+    label: 'Events',
+    tiers: [
+      { name: 'Signature (Half Day)', priceNum: 1600, durationMinutes: 240 },
+      { name: 'Lux (Half Day)', priceNum: 2600, durationMinutes: 360 },
+      { name: 'Platinum (Full Day)', priceNum: 3800, durationMinutes: 480, fullDay: true },
+      { name: 'Custom', priceNum: 2500, durationMinutes: 240 },
+    ],
+  },
+  {
+    id: 'realestate',
+    label: 'Real Estate',
+    tiers: [
+      { name: 'Signature', priceNum: 1200, durationMinutes: 60 },
+      { name: 'Lux', priceNum: 1800, durationMinutes: 90 },
+      { name: 'Platinum', priceNum: 2800, durationMinutes: 150 },
+      { name: 'Custom', priceNum: 2000, durationMinutes: 90 },
+    ],
+  },
+  {
+    id: 'custom',
+    label: 'Bespoke / Custom',
+    tiers: [
+      { name: 'Custom Package', priceNum: 1500, durationMinutes: 90 },
+      { name: 'Signature', priceNum: 1500, durationMinutes: 60 },
+      { name: 'Lux', priceNum: 2500, durationMinutes: 120 },
+      { name: 'Platinum', priceNum: 3500, durationMinutes: 180 },
+    ],
+  },
+];
+
+export function getCategoryLabel(categoryId: string): string {
+  const found = RATE_CATEGORIES.find((c) => c.id === categoryId);
+  if (found) return found.label;
+  if (!categoryId) return 'Shoot';
+  return categoryId.charAt(0).toUpperCase() + categoryId.slice(1);
+}
+
 /** Get clean tier name without embedded time slot or completion tag */
 export function getCleanTierName(tierStr: string): string {
   if (!tierStr) return '';
-  return tierStr.split(' @ ')[0].replace(/\[Completed.*?\]/g, '').trim();
+  return tierStr
+    .replace(/\s*\[Completed.*?\]/g, '')
+    .replace(/\s*@\s*\d{1,2}:\d{2}(\s*[AP]M)?$/i, '')
+    .trim();
+}
+
+export type ParsedBookingTier = {
+  tier: string;
+  shootName: string;
+  rawDisplay: string;
+  timeSlotTrailer?: string;
+  completedTrailer?: string;
+};
+
+/** Parse database tier string into Tier, Shoot Name, and trailers */
+export function parseBookingTier(dbTier: string): ParsedBookingTier {
+  if (!dbTier) {
+    return { tier: 'Signature', shootName: '', rawDisplay: '' };
+  }
+
+  let completedTrailer = '';
+  const completedMatch = dbTier.match(/\[Completed.*?\]/);
+  if (completedMatch) {
+    completedTrailer = completedMatch[0];
+  }
+
+  let timeSlotTrailer = '';
+  const timeMatch = dbTier
+    .replace(/\s*\[Completed.*?\]/g, '')
+    .match(/\s*@\s*\d{1,2}:\d{2}(\s*[AP]M)?$/i);
+  if (timeMatch) {
+    timeSlotTrailer = timeMatch[0].trim();
+  }
+
+  const clean = getCleanTierName(dbTier);
+  const parts = clean.split(/\s*[\u2014\u2013-]\s*/);
+  const knownTiers = [
+    'Signature',
+    'Lux',
+    'Platinum',
+    'Signature (Half Day)',
+    'Lux (Half Day)',
+    'Platinum (Full Day)',
+    'Custom Package',
+    'Custom',
+  ];
+
+  if (parts.length >= 2) {
+    const first = parts[0].trim();
+    const matched = knownTiers.find((t) => t.toLowerCase() === first.toLowerCase());
+    if (matched) {
+      const rest = clean.slice(parts[0].length).replace(/^\s*[\u2014\u2013-]\s*/, '').trim();
+      return {
+        tier: matched,
+        shootName: rest,
+        rawDisplay: clean,
+        timeSlotTrailer,
+        completedTrailer,
+      };
+    }
+  }
+
+  const exactMatch = knownTiers.find((t) => t.toLowerCase() === clean.toLowerCase());
+  if (exactMatch) {
+    return {
+      tier: exactMatch,
+      shootName: '',
+      rawDisplay: clean,
+      timeSlotTrailer,
+      completedTrailer,
+    };
+  }
+
+  return {
+    tier: 'Custom',
+    shootName: clean,
+    rawDisplay: clean,
+    timeSlotTrailer,
+    completedTrailer,
+  };
+}
+
+/** Format tier, shootName, timeSlot back into DB tier format */
+export function formatBookingDbTier(options: {
+  tier: string;
+  shootName?: string;
+  timeSlotTrailer?: string;
+  completedTrailer?: string;
+}): string {
+  const { tier, shootName, timeSlotTrailer, completedTrailer } = options;
+  const cleanShoot = (shootName || '').trim();
+  const cleanTier = (tier || 'Signature').trim();
+
+  let main = '';
+  if (cleanShoot) {
+    if (cleanShoot.toLowerCase().startsWith(cleanTier.toLowerCase())) {
+      main = cleanShoot;
+    } else {
+      main = `${cleanTier} — ${cleanShoot}`;
+    }
+  } else {
+    main = cleanTier;
+  }
+
+  if (timeSlotTrailer && !main.includes(timeSlotTrailer)) {
+    main = `${main} ${timeSlotTrailer}`;
+  }
+  if (completedTrailer && !main.includes(completedTrailer)) {
+    main = `${main} ${completedTrailer}`;
+  }
+
+  return main.trim();
 }
 
 /** Convert candidate slot time string ("09:30", "14:00", etc.) to valid DB constraint slot ('morning' | 'afternoon' | 'full_day') */
