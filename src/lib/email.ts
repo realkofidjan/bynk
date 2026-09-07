@@ -3,18 +3,151 @@ import nodemailer from 'nodemailer';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-// SMTP transporter (Gmail/Outlook/custom SMTP)
-const smtpTransporter = process.env.SMTP_USER && process.env.SMTP_PASS
-  ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    })
-  : null;
+export type EmailDispatchOptions = {
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  html: string;
+};
+
+export type EmailDispatchResult = {
+  success: boolean;
+  provider?: 'brevo' | 'smtp' | 'resend' | 'simulated';
+  error?: string;
+  messageId?: string;
+  emailId?: string;
+  simulated?: boolean;
+};
+
+/**
+ * Universal Email Dispatcher:
+ * 1. Brevo REST API (if BREVO_API_KEY is configured) — 300 free emails/day, zero setup
+ * 2. Nodemailer SMTP (if SMTP_USER & SMTP_PASS configured, e.g. smtp-relay.brevo.com:587, Outlook, Gmail)
+ * 3. Resend API (if RESEND_API_KEY is configured)
+ * 4. Fallback (console simulation)
+ */
+export async function sendEmail({
+  toEmail,
+  toName,
+  subject,
+  html,
+}: EmailDispatchOptions): Promise<EmailDispatchResult> {
+  // 1. Brevo REST API (Fastest & most reliable)
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (brevoApiKey && !brevoApiKey.includes('your_') && brevoApiKey.trim().length > 10) {
+    try {
+      const senderEmail =
+        process.env.BREVO_SENDER_EMAIL ||
+        process.env.SMTP_FROM ||
+        process.env.SMTP_USER ||
+        'bynkphotography@gmail.com';
+      const senderName = process.env.BREVO_SENDER_NAME || 'BYNK Photography';
+
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          'api-key': brevoApiKey.trim(),
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: toEmail, name: toName || toEmail }],
+          subject,
+          htmlContent: html,
+        }),
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.error('Brevo API error response:', resData);
+        return {
+          success: false,
+          error: `Brevo Error: ${resData.message || resData.error || res.statusText}`,
+        };
+      }
+
+      return {
+        success: true,
+        provider: 'brevo',
+        messageId: resData.messageId,
+      };
+    } catch (err: any) {
+      console.error('Brevo API exception:', err);
+      return {
+        success: false,
+        error: `Brevo Exception: ${err.message}`,
+      };
+    }
+  }
+
+  // 2. Nodemailer SMTP (Works with Brevo SMTP smtp-relay.brevo.com, Outlook, Gmail)
+  const hasRealSmtpPass =
+    process.env.SMTP_PASS &&
+    !process.env.SMTP_PASS.includes('your_') &&
+    process.env.SMTP_PASS !== 'xxxx xxxx xxxx xxxx';
+
+  if (process.env.SMTP_USER && hasRealSmtpPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const info = await transporter.sendMail({
+        from: `BYNK Photography <${fromEmail}>`,
+        to: toName ? `"${toName}" <${toEmail}>` : toEmail,
+        subject,
+        html,
+      });
+
+      return { success: true, provider: 'smtp', messageId: info.messageId };
+    } catch (err: any) {
+      console.error('Nodemailer SMTP error:', err);
+      return {
+        success: false,
+        error: `SMTP Error: ${err.message || 'Authentication failed'}`,
+      };
+    }
+  }
+
+  // 3. Resend API
+  if (resend) {
+    const fromAddress = process.env.RESEND_FROM_EMAIL || 'BYNK Photography <onboarding@resend.dev>';
+    try {
+      const { data, error } = await resend.emails.send({
+        from: fromAddress,
+        to: [toEmail],
+        subject,
+        html,
+      });
+
+      if (error) {
+        console.error('Resend email error:', error);
+        return {
+          success: false,
+          error: error.message || 'Resend domain error.',
+        };
+      }
+
+      return { success: true, provider: 'resend', emailId: data?.id };
+    } catch (err: any) {
+      console.error('Resend exception:', err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // 4. Fallback: Log to console in development
+  console.warn('Neither Brevo, SMTP, nor Resend is configured. Logged email to console:');
+  console.log({ to: toEmail, toName, subject });
+  return { success: true, provider: 'simulated', simulated: true };
+}
 
 export type BalanceEmailParams = {
   toEmail: string;
@@ -101,69 +234,12 @@ export async function sendBalancePaymentEmail({
     </html>
   `;
 
-  // 1. Try Nodemailer SMTP if configured with a real password
-  const hasRealSmtpPass = process.env.SMTP_PASS && !process.env.SMTP_PASS.includes('your_') && process.env.SMTP_PASS !== 'xxxx xxxx xxxx xxxx';
-  
-  if (process.env.SMTP_USER && hasRealSmtpPass) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-mail.outlook.com',
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-      await transporter.sendMail({
-        from: `BYNK Photography <${fromEmail}>`,
-        to: toEmail,
-        subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
-        html,
-      });
-
-      return { success: true, provider: 'smtp' };
-    } catch (err: any) {
-      console.error('Nodemailer SMTP error:', err);
-      return {
-        success: false,
-        error: `Outlook/SMTP Error: ${err.message || 'Authentication failed. Please verify your Outlook password.'}`,
-      };
-    }
-  }
-
-  // 2. Try Resend if configured
-  if (resend) {
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'BYNK Photography <onboarding@resend.dev>';
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromAddress,
-        to: [toEmail],
-        subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
-        html,
-      });
-
-      if (error) {
-        console.error('Resend email error:', error);
-        return {
-          success: false,
-          error: error.message || 'Resend domain error.',
-        };
-      }
-
-      return { success: true, provider: 'resend', emailId: data?.id };
-    } catch (err: any) {
-      console.error('Resend exception:', err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  // 3. Fallback: Log to console if neither is configured
-  console.warn('Neither SMTP nor Resend is configured. Logged to console:');
-  console.log({ to: toEmail, clientName, remainingBalanceGhs, paystackAuthorizationUrl });
-  return { success: true, simulated: true };
+  return await sendEmail({
+    toEmail,
+    toName: clientName,
+    subject: `Upcoming Shoot Payment Reminder — BYNK Photography (${shootDate})`,
+    html,
+  });
 }
 
 export type CustomOrderEmailParams = {
@@ -298,69 +374,12 @@ export async function sendCustomOrderEmail({
     </html>
   `;
 
-  // 1. Try Nodemailer SMTP if configured
-  const hasRealSmtpPass = process.env.SMTP_PASS && !process.env.SMTP_PASS.includes('your_') && process.env.SMTP_PASS !== 'xxxx xxxx xxxx xxxx';
-  
-  if (process.env.SMTP_USER && hasRealSmtpPass) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-mail.outlook.com',
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-      await transporter.sendMail({
-        from: `BYNK Photography <${fromEmail}>`,
-        to: toEmail,
-        subject: `Your Custom Photography Booking & Invoice — BYNK Photography`,
-        html,
-      });
-
-      return { success: true, provider: 'smtp' };
-    } catch (err: any) {
-      console.error('Nodemailer SMTP error in custom order email:', err);
-      return {
-        success: false,
-        error: `Outlook/SMTP Error: ${err.message || 'Authentication failed'}`,
-      };
-    }
-  }
-
-  // 2. Try Resend if configured
-  if (resend) {
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'BYNK Photography <onboarding@resend.dev>';
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromAddress,
-        to: [toEmail],
-        subject: `Your Custom Photography Booking & Invoice — BYNK Photography`,
-        html,
-      });
-
-      if (error) {
-        console.error('Resend email error in custom order email:', error);
-        return {
-          success: false,
-          error: error.message || 'Resend domain error.',
-        };
-      }
-
-      return { success: true, provider: 'resend', emailId: data?.id };
-    } catch (err: any) {
-      console.error('Resend exception in custom order email:', err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  // 3. Fallback: Log to console if neither is configured
-  console.warn('Neither SMTP nor Resend is configured. Logged custom order email to console:');
-  console.log({ to: toEmail, clientName, totalAmountGhs, depositAmountGhs, paystackAuthorizationUrl });
-  return { success: true, simulated: true };
+  return await sendEmail({
+    toEmail,
+    toName: clientName,
+    subject: `Your Custom Photography Booking & Invoice — BYNK Photography`,
+    html,
+  });
 }
 
 export type BookingConfirmationEmailParams = {
@@ -474,69 +493,12 @@ export async function sendBookingConfirmationEmail({
     </html>
   `;
 
-  // 1. Try Nodemailer SMTP if configured
-  const hasRealSmtpPass = process.env.SMTP_PASS && !process.env.SMTP_PASS.includes('your_') && process.env.SMTP_PASS !== 'xxxx xxxx xxxx xxxx';
-
-  if (process.env.SMTP_USER && hasRealSmtpPass) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-mail.outlook.com',
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-      await transporter.sendMail({
-        from: `BYNK Photography <${fromEmail}>`,
-        to: toEmail,
-        subject: `Booking Confirmed (${shootDate}) — BYNK Photography [Ref: ${bookingRef}]`,
-        html,
-      });
-
-      return { success: true, provider: 'smtp' };
-    } catch (err: any) {
-      console.error('Nodemailer SMTP error in booking confirmation email:', err);
-      return {
-        success: false,
-        error: `Outlook/SMTP Error: ${err.message || 'Authentication failed'}`,
-      };
-    }
-  }
-
-  // 2. Try Resend if configured
-  if (resend) {
-    const fromAddress = process.env.RESEND_FROM_EMAIL || 'BYNK Photography <onboarding@resend.dev>';
-    try {
-      const { data, error } = await resend.emails.send({
-        from: fromAddress,
-        to: [toEmail],
-        subject: `Booking Confirmed (${shootDate}) — BYNK Photography [Ref: ${bookingRef}]`,
-        html,
-      });
-
-      if (error) {
-        console.error('Resend email error in booking confirmation email:', error);
-        return {
-          success: false,
-          error: error.message || 'Resend domain error.',
-        };
-      }
-
-      return { success: true, provider: 'resend', emailId: data?.id };
-    } catch (err: any) {
-      console.error('Resend exception in booking confirmation email:', err);
-      return { success: false, error: err.message };
-    }
-  }
-
-  // 3. Fallback
-  console.warn('Neither SMTP nor Resend configured. Booking confirmation logged:');
-  console.log({ to: toEmail, clientName, bookingRef, shootDate, depositPaidGhs });
-  return { success: true, simulated: true };
+  return await sendEmail({
+    toEmail,
+    toName: clientName,
+    subject: `Booking Confirmed (${shootDate}) — BYNK Photography [Ref: ${bookingRef}]`,
+    html,
+  });
 }
 
 
