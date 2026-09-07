@@ -501,4 +501,97 @@ export async function sendBookingConfirmationEmail({
   });
 }
 
+export type ManualShootEmailParams = {
+  toEmail: string;
+  clientName: string;
+  shootDate?: string;
+  tierName?: string;
+  categoryLabel?: string;
+  subject: string;
+  message: string;
+  actionUrl?: string;
+  actionText?: string;
+};
+
+/**
+ * Send custom branded admin email directly to client regarding their shoot.
+ */
+export async function sendManualShootEmail({
+  toEmail,
+  clientName,
+  shootDate,
+  tierName,
+  categoryLabel,
+  subject,
+  message,
+  actionUrl,
+  actionText,
+}: ManualShootEmailParams) {
+  // Convert newlines in message to paragraphs/linebreaks
+  const formattedMessage = message
+    .split('\n\n')
+    .map((p) => `<p style="margin: 0 0 14px 0; line-height: 1.6; color: #ddd;">${p.replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+
+  const shootInfoHtml = shootDate || tierName ? `
+    <div style="background: #141414; border: 1px solid #262626; padding: 16px; margin: 24px 0;">
+      <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin-bottom: 8px;">Session Overview</div>
+      ${tierName ? `<div style="font-size: 13px; color: #fff; margin-bottom: 4px;"><strong>Package:</strong> ${tierName} ${categoryLabel ? `(${categoryLabel})` : ''}</div>` : ''}
+      ${shootDate ? `<div style="font-size: 13px; color: #bbb;"><strong>Shoot Date:</strong> ${shootDate}</div>` : ''}
+    </div>
+  ` : '';
+
+  const actionButtonHtml = actionUrl ? `
+    <div style="text-align: center; margin: 30px 0 10px 0;">
+      <a href="${actionUrl}" style="display: inline-block; background: #ffffff; color: #000000; text-decoration: none; padding: 12px 28px; font-weight: 600; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;">
+        ${actionText || 'View Details'}
+      </a>
+    </div>
+  ` : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background-color: #050505; color: #f5f5f5; margin: 0; padding: 40px 20px; }
+          .container { max-width: 560px; margin: 0 auto; background: #0a0a0a; border: 1px solid #262626; padding: 36px; border-radius: 4px; }
+          .header { text-transform: uppercase; font-size: 10px; letter-spacing: 3px; color: #888; margin-bottom: 8px; }
+          .title { font-family: Georgia, serif; font-size: 24px; color: #fff; margin: 0 0 20px 0; font-weight: normal; }
+          .divider { height: 1px; background: #262626; margin: 24px 0; }
+          .footer { margin-top: 32px; border-top: 1px solid #222; padding-top: 20px; font-size: 11px; color: #666; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">BYNK Photography</div>
+          <h1 class="title">${subject}</h1>
+          <p style="font-size: 13px; color: #a3a3a3; margin-bottom: 20px;">Dear ${clientName},</p>
+          
+          <div style="font-size: 13px;">
+            ${formattedMessage}
+          </div>
+
+          ${shootInfoHtml}
+          ${actionButtonHtml}
+
+          <div class="footer">
+            <p>BYNK Photography · Accra, Ghana</p>
+            <p>For questions or assistance, reply to this email or WhatsApp +233 20 555 5084.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return await sendEmail({
+    toEmail,
+    toName: clientName,
+    subject: `${subject} — BYNK Photography`,
+    html,
+  });
+}
+
+
 

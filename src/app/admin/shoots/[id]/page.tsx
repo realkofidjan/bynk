@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ChronoSelect } from '@/components/ui/chrono-select';
+import { SendShootEmailModal } from '@/components/send-shoot-email-modal';
 
 export default function BookingDetailPage() {
   const params = useParams();
@@ -83,6 +84,7 @@ export default function BookingDetailPage() {
 
   // Cancel state
   const [showCancel, setShowCancel] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
   // Payment link state
@@ -1118,6 +1120,15 @@ export default function BookingDetailPage() {
                   Complete Shoot & Record Payment
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => setShowEmailModal(true)}
+                  className="w-full py-2.5 px-3 bg-foreground/[0.04] hover:bg-foreground/[0.08] text-foreground border border-foreground/25 text-[10px] uppercase tracking-[0.15em] font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <Mail className="w-3.5 h-3.5 text-foreground/80" />
+                  Email Client (Payment Link / Confirmation)
+                </button>
+
                 <div className="grid grid-cols-2 gap-2">
                   <a
                     href={`https://wa.me/${booking.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${booking.name}, regarding your upcoming BYNK photography shoot...`)}`}
@@ -1312,6 +1323,13 @@ export default function BookingDetailPage() {
         )}
         </div>
       </div>
+
+      {/* Manual Email Dispatch Modal (Brevo) */}
+      <SendShootEmailModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        shoot={booking}
+      />
     </div>
   );
 }

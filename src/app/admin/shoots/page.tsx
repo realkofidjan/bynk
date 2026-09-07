@@ -42,6 +42,7 @@ import {
   getCategoryLabel,
 } from '@/lib/booking-types';
 import CustomOrderCreator from '@/components/custom-order-creator';
+import { SendShootEmailModal } from '@/components/send-shoot-email-modal';
 
 export default function AdminShootsPage() {
   const router = useRouter();
@@ -58,6 +59,7 @@ export default function AdminShootsPage() {
   const [error, setError] = useState('');
 
   // Email & cancellation state
+  const [emailingShoot, setEmailingShoot] = useState<Booking | null>(null);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [emailNotice, setEmailNotice] = useState<{ id: string; msg: string; type: 'success' | 'error'; url?: string } | null>(null);
 
@@ -651,6 +653,15 @@ export default function AdminShootsPage() {
                         Edit Shoot
                       </button>
 
+                      <button
+                        type="button"
+                        onClick={() => setEmailingShoot(shoot)}
+                        className="text-[10px] uppercase tracking-[0.15em] text-foreground hover:text-foreground/80 flex items-center gap-1.5 transition-colors cursor-pointer border border-foreground/20 px-3 py-1.5 bg-foreground/[0.03] hover:bg-foreground/[0.08]"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-foreground/70" />
+                        Send Email
+                      </button>
+
                       {!isCompleted && shoot.status !== 'cancelled' && (
                         <button
                           type="button"
@@ -1111,6 +1122,22 @@ export default function AdminShootsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Manual Email Dispatch Modal (Brevo) */}
+      <SendShootEmailModal
+        isOpen={!!emailingShoot}
+        onClose={() => setEmailingShoot(null)}
+        shoot={emailingShoot}
+        onSuccess={(msg) => {
+          if (emailingShoot) {
+            setEmailNotice({
+              id: emailingShoot.id,
+              msg,
+              type: 'success',
+            });
+          }
+        }}
+      />
 
     </div>
   );
