@@ -167,6 +167,8 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
           bookingId: data.id,
           email: data.email,
           totalPrice: data.totalPrice,
+          basePriceGhs: baseChargeAmount,
+          depositAmount: data.paymentType === 'deposit' ? baseChargeAmount : undefined,
           exactAmountGhs: discountedSubtotal,
           category: data.category,
           tier: data.rawTier,

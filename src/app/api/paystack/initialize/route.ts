@@ -46,12 +46,14 @@ export async function POST(request: NextRequest) {
 
     const base = basePriceGhs || totalPrice;
     const addOns = addOnsGhs || 0;
-    let chargeAmount = exactAmountGhs || depositAmount || (Math.round(base / 2) + addOns);
+    // Calculate raw undiscounted due amount for this specific transaction
+    const rawDueAmount = depositAmount || (paymentType === 'full' ? Number(totalPrice) : (Math.round(base / 2) + addOns));
 
-    // Validate discount code if provided
+    let chargeAmount = rawDueAmount;
     let verifiedDiscountCode: string | null = null;
     let appliedDiscountAmount = 0;
 
+    // Validate discount code against the base due amount
     if (discountCode && typeof discountCode === 'string' && discountCode.trim()) {
       const cleanCode = discountCode.trim().toUpperCase();
       const { data: discount } = await supabase
@@ -64,26 +66,23 @@ export async function POST(request: NextRequest) {
       if (discount) {
         const notExpired = !discount.expires_at || new Date(discount.expires_at).getTime() >= Date.now();
         const underLimit = discount.max_uses === null || discount.used_count < discount.max_uses;
-        const meetsMinSpend = !discount.min_spend || chargeAmount >= Number(discount.min_spend);
+        const meetsMinSpend = !discount.min_spend || rawDueAmount >= Number(discount.min_spend);
 
         if (notExpired && underLimit && meetsMinSpend) {
           verifiedDiscountCode = cleanCode;
           if (discount.discount_type === 'percentage') {
-            appliedDiscountAmount = Math.round((chargeAmount * Number(discount.discount_value)) / 100);
+            appliedDiscountAmount = Math.round((rawDueAmount * Number(discount.discount_value)) / 100);
           } else {
-            appliedDiscountAmount = Math.min(chargeAmount, Number(discount.discount_value));
+            appliedDiscountAmount = Math.min(rawDueAmount, Number(discount.discount_value));
           }
 
           // Apply discount to charge amount (at least 1 GHS for Paystack)
-          chargeAmount = Math.max(1, chargeAmount - appliedDiscountAmount);
-
-          // Increment used_count
-          await supabase
-            .from('discount_codes')
-            .update({ used_count: (discount.used_count || 0) + 1 })
-            .eq('id', discount.id);
+          chargeAmount = Math.max(1, rawDueAmount - appliedDiscountAmount);
         }
       }
+    } else if (exactAmountGhs && Number(exactAmountGhs) > 0) {
+      // If client sent exactAmountGhs without a promo code, use it directly
+      chargeAmount = Math.round(Number(exactAmountGhs));
     }
 
     // Initialize transaction with Paystack for the calculated amount (with 1.95% fee borne by client)

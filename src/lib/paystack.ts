@@ -14,10 +14,9 @@ export const PAYSTACK_FEE_PERCENT = 1.95;
  */
 export function calculateGrossAmountInPesewas(netGhs: number, feePercent: number = PAYSTACK_FEE_PERCENT) {
   const feeRate = feePercent / 100;
-  const grossGhsExact = netGhs / (1 - feeRate);
-  const grossPesewas = Math.ceil(grossGhsExact * 100);
-  const grossGhs = Math.round(grossPesewas) / 100;
-  const feeGhs = Math.round((grossGhs - netGhs) * 100) / 100;
+  const feeGhs = Math.round(netGhs * feeRate * 100) / 100;
+  const grossGhs = Math.round((netGhs + feeGhs) * 100) / 100;
+  const grossPesewas = Math.round(grossGhs * 100);
   return { grossGhs, grossPesewas, feeGhs };
 }
 

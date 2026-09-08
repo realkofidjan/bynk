@@ -625,7 +625,7 @@ export default function CustomOrderCreator({
   const handleShareWhatsApp = () => {
     if (!createdResult) return;
     const phoneClean = phone.replace(/[^0-9]/g, '');
-    const payUrl = createdResult.authorizationUrl || createdResult.invoiceUrl;
+    const payUrl = createdResult.invoiceUrl || createdResult.authorizationUrl;
     
     let text = `Hi ${name},\n\nYour custom photography session for *${date}* (*${packageTitle}*) has been prepared by BYNK Photography.\n\n`;
     text += `• Total Session Fee: GHS ${totalNum.toLocaleString()}\n`;
@@ -638,11 +638,7 @@ export default function CustomOrderCreator({
       text += `• Status: Confirmed (Paid Offline)\n`;
     }
 
-    if (createdResult.authorizationUrl) {
-      text += `\n💳 Click here to secure your date online:\n${createdResult.authorizationUrl}\n`;
-    } else {
-      text += `\n📄 View your booking invoice here:\n${createdResult.invoiceUrl}\n`;
-    }
+    text += `\n💳 Review session deliverables & pay online:\n${payUrl}\n`;
 
     text += `\nThank you,\nBYNK Photography`;
 
@@ -801,9 +797,9 @@ export default function CustomOrderCreator({
                   Send via WhatsApp
                 </button>
 
-                {createdResult.authorizationUrl && (
+                {(createdResult.invoiceUrl || createdResult.authorizationUrl) && (
                   <a
-                    href={createdResult.authorizationUrl}
+                    href={createdResult.invoiceUrl || createdResult.authorizationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full sm:w-auto flex items-center justify-center gap-2 border border-foreground/30 hover:border-foreground py-3 px-5 text-xs uppercase tracking-[0.15em] transition-colors"

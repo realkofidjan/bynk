@@ -60,6 +60,21 @@ function SuccessContent() {
 
     const fetchBooking = async () => {
       try {
+        // First attempt live verification with Paystack to confirm shoot immediately
+        const verifyParams = new URLSearchParams();
+        if (reference) verifyParams.set('reference', reference);
+        if (bookingIdParam) verifyParams.set('bookingId', bookingIdParam);
+
+        const verifyRes = await fetch(`/api/paystack/verify?${verifyParams.toString()}`);
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          if (verifyData.booking) {
+            setBooking(verifyData.booking);
+            return;
+          }
+        }
+
+        // Fallback to standard booking lookup if needed
         const res = await fetch(`/api/bookings/${targetId}`);
         if (res.ok) {
           const data = await res.json();
@@ -76,7 +91,7 @@ function SuccessContent() {
     };
 
     fetchBooking();
-  }, [targetId]);
+  }, [targetId, reference, bookingIdParam]);
 
   const handleDownloadIcs = () => {
     if (!booking) return;

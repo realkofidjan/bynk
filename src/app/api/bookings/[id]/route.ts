@@ -29,6 +29,23 @@ export async function GET(
     const noteEntry = (booking.add_ons || []).find((a: string) => String(a).startsWith('Note:'));
     booking.notes = noteEntry ? String(noteEntry).replace(/^Note:\s*/, '') : '';
 
+    // If still marked pending but has paystack_reference, verify live with Paystack and auto-promote to confirmed
+    if (booking.status === 'pending' && booking.paystack_reference) {
+      try {
+        const { verifyPaystackTransaction } = await import('@/lib/paystack');
+        const vResult = await verifyPaystackTransaction(booking.paystack_reference);
+        if (vResult.success && vResult.status === 'success') {
+          await supabase
+            .from('bookings')
+            .update({ status: 'confirmed' })
+            .eq('id', booking.id);
+          booking.status = 'confirmed';
+        }
+      } catch (vErr) {
+        console.warn('Paystack inline check error:', vErr);
+      }
+    }
+
     return NextResponse.json({ booking });
   } catch (err) {
     console.error('Booking GET by ID error:', err);
