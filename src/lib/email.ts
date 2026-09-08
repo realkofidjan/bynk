@@ -412,7 +412,11 @@ export async function sendBookingConfirmationEmail({
   remainingBalanceGhs,
   lookupUrl,
 }: BookingConfirmationEmailParams) {
-  const portalUrl = lookupUrl || 'https://bynkphotography.com/book/lookup';
+  const appBaseUrl =
+    lookupUrl ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://bynkphotography.com');
+  const portalUrl = lookupUrl || `${appBaseUrl.replace(/\/$/, '')}/book/lookup`;
 
   const html = `
     <!DOCTYPE html>
