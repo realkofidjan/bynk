@@ -157,12 +157,13 @@ export type BalanceEmailParams = {
   shootDate: string; // e.g. "Sat, Sep 20, 2026"
   timeSlotLabel: string; // e.g. "Morning (8 AM – 12 PM)"
   remainingBalanceGhs: number;
-  paystackAuthorizationUrl: string;
+  checkoutUrl?: string;
+  paystackAuthorizationUrl?: string; // backwards compatibility
 };
 
 /**
- * Send balance payment email to client with Paystack authorization URL.
- * Works with Nodemailer (SMTP/Gmail) or Resend API.
+ * Send balance payment email to client with bespoke checkout URL.
+ * Allows client to review deliverables, enter discount codes, and pay securely via Paystack.
  */
 export async function sendBalancePaymentEmail({
   toEmail,
@@ -172,8 +173,11 @@ export async function sendBalancePaymentEmail({
   shootDate,
   timeSlotLabel,
   remainingBalanceGhs,
+  checkoutUrl,
   paystackAuthorizationUrl,
 }: BalanceEmailParams) {
+  const paymentLink = checkoutUrl || paystackAuthorizationUrl || 'https://bynkphotography.com';
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -224,7 +228,10 @@ export async function sendBalancePaymentEmail({
             <div class="amount-value">GHS ${remainingBalanceGhs.toLocaleString()}</div>
           </div>
 
-          <a href="${paystackAuthorizationUrl}" class="button">Pay GHS ${remainingBalanceGhs.toLocaleString()} via Paystack</a>
+          <a href="${paymentLink}" class="button">Review Invoice &amp; Pay Online</a>
+          <p style="text-align: center; font-size: 11px; color: #888; margin-top: 12px; margin-bottom: 0;">
+            Review your session deliverables, apply any promo / discount codes, and complete payment securely.
+          </p>
 
           <div class="footer">
             Secured by Paystack · BYNK Photography Ghana
@@ -252,6 +259,7 @@ export type CustomOrderEmailParams = {
   totalAmountGhs: number;
   depositAmountGhs: number;
   remainingBalanceGhs: number;
+  checkoutUrl?: string;
   paystackAuthorizationUrl?: string;
   invoiceUrl?: string;
   notes?: string;
@@ -259,7 +267,7 @@ export type CustomOrderEmailParams = {
 };
 
 /**
- * Send custom order / booking proposal email to client with Paystack authorization URL.
+ * Send custom order / booking proposal email to client with bespoke checkout URL.
  */
 export async function sendCustomOrderEmail({
   toEmail,
@@ -271,6 +279,7 @@ export async function sendCustomOrderEmail({
   totalAmountGhs,
   depositAmountGhs,
   remainingBalanceGhs,
+  checkoutUrl,
   paystackAuthorizationUrl,
   invoiceUrl,
   notes,
@@ -280,6 +289,8 @@ export async function sendCustomOrderEmail({
   const isDeposit = depositAmountGhs > 0 && !isFullyPaid;
   const chargeAmount = isFullyPaid ? totalAmountGhs : isDeposit ? depositAmountGhs : 0;
 
+  const paymentLink = checkoutUrl || invoiceUrl || paystackAuthorizationUrl;
+
   const addOnsHtml = addOns.length > 0
     ? `<div class="detail-row"><span class="label">Included Add-ons</span><span class="value">${addOns.join(', ')}</span></div>`
     : '';
@@ -288,11 +299,14 @@ export async function sendCustomOrderEmail({
     ? `<div class="notes-box"><div class="label" style="margin-bottom:6px;">Session Deliverables & Notes</div><div style="font-size:11px;color:#ddd;line-height:1.5;">${notes}</div></div>`
     : '';
 
-  const payButtonHtml = paystackAuthorizationUrl
-    ? `<a href="${paystackAuthorizationUrl}" class="button">Pay GHS ${chargeAmount.toLocaleString()} via Paystack</a>`
-    : invoiceUrl
-      ? `<a href="${invoiceUrl}" class="button" style="background:#222;color:#fff;border:1px solid #444;">View Booking Confirmation</a>`
-      : '';
+  const payButtonHtml = paymentLink
+    ? `
+      <a href="${paymentLink}" class="button">Review Deliverables &amp; Pay GHS ${chargeAmount.toLocaleString()}</a>
+      <p style="text-align: center; font-size: 11px; color: #888; margin-top: 12px; margin-bottom: 0;">
+        Review your session deliverables, apply any promo / discount codes, and pay securely.
+      </p>
+    `
+    : '';
 
   const html = `
     <!DOCTYPE html>

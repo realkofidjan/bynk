@@ -47,48 +47,33 @@ export async function GET(request: NextRequest) {
       // Skip if balance is already 0
       if (remainingBalanceGhs <= 0) continue;
 
-      const callbackUrl = `${origin}/book?status=payment_complete&bookingId=${booking.id}`;
+      const checkoutUrl = `${origin}/checkout/${booking.id}?type=balance`;
 
-      // Initialize Paystack balance transaction link
-      const paystackResult = await initializePaystackTransaction({
-        email: booking.email,
-        amountInGhs: booking.total_price,
-        exactAmountInGhs: remainingBalanceGhs,
-        bookingId: `${booking.id}_auto_remind`,
-        callbackUrl,
-        metadata: {
-          booking_id: booking.id,
-          reminder_type: '1_day_before',
-        },
+      const [y, m, d] = booking.date.split('-').map(Number);
+      const formattedDate = new Date(y, m - 1, d).toDateString();
+      const timeSlotLabel = booking.full_day
+        ? 'Full Day'
+        : SLOT_LABELS[booking.slot as keyof typeof SLOT_LABELS] || booking.slot;
+
+      // Send payment reminder email pointing to bespoke checkout page
+      const emailResult = await sendBalancePaymentEmail({
+        toEmail: booking.email,
+        clientName: booking.name,
+        categoryLabel: booking.category,
+        tierName: booking.tier,
+        shootDate: formattedDate,
+        timeSlotLabel,
+        remainingBalanceGhs,
+        checkoutUrl,
       });
 
-      if (paystackResult.success && paystackResult.authorizationUrl) {
-        const [y, m, d] = booking.date.split('-').map(Number);
-        const formattedDate = new Date(y, m - 1, d).toDateString();
-        const timeSlotLabel = booking.full_day
-          ? 'Full Day'
-          : SLOT_LABELS[booking.slot as keyof typeof SLOT_LABELS] || booking.slot;
-
-        // Send payment reminder email
-        const emailResult = await sendBalancePaymentEmail({
-          toEmail: booking.email,
-          clientName: booking.name,
-          categoryLabel: booking.category,
-          tierName: booking.tier,
-          shootDate: formattedDate,
-          timeSlotLabel,
-          remainingBalanceGhs,
-          paystackAuthorizationUrl: paystackResult.authorizationUrl,
-        });
-
-        results.push({
-          bookingId: booking.id,
-          clientName: booking.name,
-          email: booking.email,
-          emailSent: emailResult.success,
-          simulated: emailResult.simulated,
-        });
-      }
+      results.push({
+        bookingId: booking.id,
+        clientName: booking.name,
+        email: booking.email,
+        emailSent: emailResult.success,
+        simulated: emailResult.simulated,
+      });
     }
 
     return NextResponse.json({

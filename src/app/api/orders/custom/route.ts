@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
     const proto = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
     const origin = `${proto}://${host}`;
-    const invoiceUrl = `${origin}/book?status=payment_complete&bookingId=${newBooking.id}`;
+    const checkoutUrl = `${origin}/checkout/${newBooking.id}?type=${paymentOption === 'full' ? 'full' : 'deposit'}`;
+    const invoiceUrl = checkoutUrl;
 
     let paystackAuthorizationUrl: string | undefined = undefined;
     let paystackReference: string | undefined = undefined;
@@ -103,8 +104,8 @@ export async function POST(request: NextRequest) {
         clientName: newBooking.name,
         amountInGhs: Number(totalPrice),
         exactAmountInGhs: calculatedDeposit,
-        bookingId: newBooking.id,
-        callbackUrl: invoiceUrl,
+        bookingId: `${newBooking.id}_custom_order`,
+        callbackUrl: `${origin}/book/success?bookingId=${newBooking.id}`,
         metadata: {
           booking_id: newBooking.id,
           category,
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
     const formattedTimeLabel = fullDay ? 'Full Day Session' : timeSlot;
     const remainingBalanceGhs = Math.max(0, Number(totalPrice) - calculatedDeposit);
 
-    // Send invoice / proposal email if requested
+    // Send invoice / proposal email pointing to bespoke checkout where client can review deliverables & enter discount codes
     let emailSent = false;
     let emailError: string | undefined = undefined;
 
@@ -152,8 +153,9 @@ export async function POST(request: NextRequest) {
         totalAmountGhs: Number(totalPrice),
         depositAmountGhs: calculatedDeposit,
         remainingBalanceGhs,
-        paystackAuthorizationUrl,
-        invoiceUrl,
+        checkoutUrl,
+        paystackAuthorizationUrl: checkoutUrl,
+        invoiceUrl: checkoutUrl,
         notes,
         addOns,
       });
