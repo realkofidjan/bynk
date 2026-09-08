@@ -630,16 +630,16 @@ export default function CustomOrderCreator({
     let text = `Hi ${name},\n\nYour custom photography session for *${date}* (*${packageTitle}*) has been prepared by BYNK Photography.\n\n`;
     text += `• Total Session Fee: GHS ${totalNum.toLocaleString()}\n`;
     if (paymentOption === 'deposit') {
-      text += `• Deposit Due Now: GHS ${depositNum.toLocaleString()} (+ 1.95% payment processing fee)\n`;
+      text += `• Deposit Due Now: GHS ${depositNum.toLocaleString()}\n`;
       text += `• Remaining Balance: GHS ${remainingBalanceNum.toLocaleString()}\n`;
     } else if (paymentOption === 'full') {
-      text += `• Full Payment: GHS ${totalNum.toLocaleString()} (+ 1.95% payment processing fee)\n`;
+      text += `• Full Payment: GHS ${totalNum.toLocaleString()}\n`;
     } else {
       text += `• Status: Confirmed (Paid Offline)\n`;
     }
 
     if (createdResult.authorizationUrl) {
-      text += `\n💳 Click here to secure your date via Paystack:\n${createdResult.authorizationUrl}\n`;
+      text += `\n💳 Click here to secure your date online:\n${createdResult.authorizationUrl}\n`;
     } else {
       text += `\n📄 View your booking invoice here:\n${createdResult.invoiceUrl}\n`;
     }

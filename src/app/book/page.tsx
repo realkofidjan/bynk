@@ -321,7 +321,7 @@ const termsAndConditions = [
     number: '01',
     title: 'Booking & Deposit',
     content:
-      'A 50% non-refundable deposit of the base package price is required to secure your date. Optional add-ons are billed separately and paid 100% upfront at the time of booking — they do not count toward the 50% package deposit. A date is confirmed once payment has been received. Standard electronic payment processing charges (Paystack 1.95%) are incurred at checkout. The remaining 50% balance of the base package must be settled before photography coverage begins.',
+      'A 50% non-refundable deposit of the base package price is required to secure your date. Optional add-ons are billed separately and paid 100% upfront at the time of booking — they do not count toward the 50% package deposit. A date is confirmed once payment has been received. The remaining 50% balance of the base package must be settled before photography coverage begins.',
   },
   {
     number: '02',
@@ -972,13 +972,9 @@ function BookingFormLightbox({
                     </div>
                   )}
 
-                  <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/50">
-                    <span>Payment Processing Fee (1.95%):</span>
-                    <span>+ GHS {depositFeeGhs.toFixed(2)}</span>
-                  </div>
                   <div className="flex items-baseline justify-between text-[11px] font-mono text-foreground font-bold pt-1 border-t border-foreground/10">
-                    <span className="uppercase tracking-wider">Total at Paystack Checkout:</span>
-                    <span>GHS {grossDepositGhs.toFixed(2)}</span>
+                    <span className="uppercase tracking-wider">Deposit Payable Now:</span>
+                    <span>GHS {discountedDepositGhs.toLocaleString()}</span>
                   </div>
                   <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/40 pt-1 border-t border-foreground/10">
                     <span>Balance on Shoot Date:</span>
@@ -1216,12 +1212,12 @@ function BookingFormLightbox({
                   `}
                 >
                   {submitting
-                    ? 'Connecting to Paystack...'
-                    : `Pay Deposit (GHS ${grossDepositGhs.toFixed(2)})`}
+                    ? 'Preparing checkout...'
+                    : `Pay Deposit (GHS ${discountedDepositGhs.toLocaleString()})`}
                 </button>
 
                 <p className="text-foreground/40 text-[9px] font-mono uppercase tracking-[0.15em] text-center pt-2">
-                  Secured by Paystack · Mobile Money, Cards &amp; Apple Pay
+                  Encrypted Checkout · Mobile Money, Cards &amp; Apple Pay
                 </p>
               </div>
             </div>

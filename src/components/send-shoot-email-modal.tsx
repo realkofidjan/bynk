@@ -260,7 +260,7 @@ export function SendShootEmailModal({
                 </button>
               </div>
               <p className="text-[10px] text-foreground/50 font-mono">
-                Generates a bespoke invoice &amp; checkout link where the client can review deliverables, enter discount codes, and pay securely via Paystack.
+                Generates a bespoke invoice &amp; checkout link where the client can review deliverables, enter discount codes, and complete payment securely.
               </p>
             </div>
           )}

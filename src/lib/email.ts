@@ -234,7 +234,7 @@ export async function sendBalancePaymentEmail({
           </p>
 
           <div class="footer">
-            Secured by Paystack · BYNK Photography Ghana
+            BYNK Photography · Accra, Ghana
           </div>
         </div>
       </body>
@@ -381,7 +381,7 @@ export async function sendCustomOrderEmail({
           ${payButtonHtml}
 
           <div class="footer">
-            Secured by Paystack · BYNK Photography Ghana
+            BYNK Photography · Accra, Ghana
           </div>
         </div>
       </body>

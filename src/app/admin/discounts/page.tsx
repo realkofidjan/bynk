@@ -17,6 +17,7 @@ import {
   X,
   Sparkles,
   Check,
+  Pencil,
 } from 'lucide-react';
 import { DiscountCode, DiscountType } from '@/lib/booking-types';
 
@@ -29,6 +30,7 @@ export default function AdminDiscountsPage() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<DiscountCode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
 
@@ -43,6 +45,32 @@ export default function AdminDiscountsPage() {
 
   // Deleting State
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const openCreateModal = () => {
+    setEditingDiscount(null);
+    setCode('');
+    setDescription('');
+    setDiscountType('percentage');
+    setDiscountValue('');
+    setMinSpend('');
+    setMaxUses('');
+    setExpiresAt('');
+    setModalError('');
+    setShowModal(true);
+  };
+
+  const openEditModal = (d: DiscountCode) => {
+    setEditingDiscount(d);
+    setCode(d.code);
+    setDescription(d.description || '');
+    setDiscountType(d.discount_type);
+    setDiscountValue(d.discount_value);
+    setMinSpend(d.min_spend || '');
+    setMaxUses(d.max_uses || '');
+    setExpiresAt(d.expires_at ? d.expires_at.slice(0, 10) : '');
+    setModalError('');
+    setShowModal(true);
+  };
 
   const fetchDiscounts = useCallback(async () => {
     try {
@@ -107,7 +135,7 @@ export default function AdminDiscountsPage() {
     }
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError('');
 
@@ -128,26 +156,43 @@ export default function AdminDiscountsPage() {
 
     try {
       setSubmitting(true);
-      const res = await fetch('/api/discounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: code.trim().toUpperCase(),
-          description: description.trim() || undefined,
-          discount_type: discountType,
-          discount_value: Number(discountValue),
-          min_spend: minSpend ? Number(minSpend) : 0,
-          max_uses: maxUses ? Number(maxUses) : null,
-          expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-        }),
-      });
+
+      const payload = {
+        code: code.trim().toUpperCase(),
+        description: description.trim() || undefined,
+        discount_type: discountType,
+        discount_value: Number(discountValue),
+        min_spend: minSpend ? Number(minSpend) : 0,
+        max_uses: maxUses ? Number(maxUses) : null,
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+      };
+
+      let res: Response;
+      if (editingDiscount) {
+        res = await fetch('/api/discounts', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingDiscount.id,
+            ...payload,
+            is_active: editingDiscount.is_active,
+          }),
+        });
+      } else {
+        res = await fetch('/api/discounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to create discount code');
+        throw new Error(data.error || `Failed to ${editingDiscount ? 'update' : 'create'} discount code`);
       }
 
       setShowModal(false);
+      setEditingDiscount(null);
       // Reset form
       setCode('');
       setDescription('');
@@ -158,7 +203,7 @@ export default function AdminDiscountsPage() {
       setExpiresAt('');
       await fetchDiscounts();
     } catch (err: any) {
-      setModalError(err.message || 'Error creating discount code');
+      setModalError(err.message || `Error ${editingDiscount ? 'updating' : 'creating'} discount code`);
     } finally {
       setSubmitting(false);
     }
@@ -199,7 +244,7 @@ export default function AdminDiscountsPage() {
           </button>
 
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openCreateModal}
             className="px-4 py-2 bg-foreground text-background text-xs uppercase tracking-[0.15em] font-semibold hover:bg-foreground/90 transition-all flex items-center gap-2 cursor-pointer shadow-md"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -269,7 +314,7 @@ export default function AdminDiscountsPage() {
             <Tag className="w-8 h-8 text-foreground/20 mx-auto" />
             <p className="text-xs uppercase tracking-wider text-foreground/40">No discount codes created yet</p>
             <button
-              onClick={() => setShowModal(true)}
+              onClick={openCreateModal}
               className="text-xs text-foreground underline underline-offset-4 hover:opacity-80 transition-opacity cursor-pointer"
             >
               Create your first discount code &rarr;
@@ -372,19 +417,29 @@ export default function AdminDiscountsPage() {
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          type="button"
-                          disabled={deletingId === d.id}
-                          onClick={() => handleDelete(d.id)}
-                          className="text-foreground/30 hover:text-red-400 p-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                          title="Delete Code"
-                        >
-                          {deletingId === d.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(d)}
+                            className="text-foreground/40 hover:text-foreground p-1.5 transition-colors cursor-pointer"
+                            title="Edit Discount Code"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingId === d.id}
+                            onClick={() => handleDelete(d.id)}
+                            className="text-foreground/30 hover:text-red-400 p-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Delete Code"
+                          >
+                            {deletingId === d.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -423,7 +478,7 @@ export default function AdminDiscountsPage() {
                       BYNK Photography · Promotions
                     </p>
                     <h3 className="text-base font-serif font-semibold text-foreground">
-                      Create Discount Code
+                      {editingDiscount ? `Edit Discount: ${editingDiscount.code}` : 'Create Discount Code'}
                     </h3>
                   </div>
                 </div>
@@ -443,7 +498,7 @@ export default function AdminDiscountsPage() {
                 </div>
               )}
 
-              <form onSubmit={handleCreate} className="space-y-4 text-xs font-mono">
+              <form onSubmit={handleSave} className="space-y-4 text-xs font-mono">
                 {/* Code input */}
                 <div>
                   <label className="block text-[9px] uppercase tracking-widest text-foreground/60 mb-1">
@@ -601,7 +656,7 @@ export default function AdminDiscountsPage() {
                     ) : (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Save Discount Code</span>
+                        <span>{editingDiscount ? 'Update Discount Code' : 'Save Discount Code'}</span>
                       </>
                     )}
                   </button>

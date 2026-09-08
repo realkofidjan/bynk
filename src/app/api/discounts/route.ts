@@ -100,20 +100,82 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, is_active } = await request.json();
+    const body = await request.json();
+    const {
+      id,
+      code,
+      description,
+      discount_type,
+      discount_value,
+      min_spend,
+      max_uses,
+      expires_at,
+      is_active,
+    } = body;
+
     if (!id) {
       return NextResponse.json({ error: 'Discount ID is required' }, { status: 400 });
+    }
+
+    const updates: Record<string, any> = {};
+
+    if (is_active !== undefined) {
+      updates.is_active = Boolean(is_active);
+    }
+
+    if (code !== undefined) {
+      if (!code.trim()) {
+        return NextResponse.json({ error: 'Discount code cannot be empty' }, { status: 400 });
+      }
+      updates.code = code.trim().toUpperCase();
+    }
+
+    if (description !== undefined) {
+      updates.description = description ? description.trim() : null;
+    }
+
+    if (discount_type !== undefined) {
+      if (!['percentage', 'fixed'].includes(discount_type)) {
+        return NextResponse.json({ error: 'Discount type must be percentage or fixed' }, { status: 400 });
+      }
+      updates.discount_type = discount_type;
+    }
+
+    if (discount_value !== undefined) {
+      const val = Number(discount_value);
+      if (isNaN(val) || val <= 0) {
+        return NextResponse.json({ error: 'Discount value must be greater than 0' }, { status: 400 });
+      }
+      if ((updates.discount_type || discount_type) === 'percentage' && val > 100) {
+        return NextResponse.json({ error: 'Percentage discount cannot exceed 100%' }, { status: 400 });
+      }
+      updates.discount_value = val;
+    }
+
+    if (min_spend !== undefined) {
+      updates.min_spend = Number(min_spend) || 0;
+    }
+
+    if (max_uses !== undefined) {
+      updates.max_uses = max_uses ? Number(max_uses) : null;
+    }
+
+    if (expires_at !== undefined) {
+      updates.expires_at = expires_at || null;
     }
 
     const supabase = createServerSupabase();
     const { data, error } = await supabase
       .from('discount_codes')
-      .update({ is_active })
+      .update(updates)
       .eq('id', id)
       .select()
       .single();
 
     if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: `Code "${updates.code}" already exists` }, { status: 400 });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -122,6 +184,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
   }
 }
+
 
 export async function DELETE(request: NextRequest) {
   try {

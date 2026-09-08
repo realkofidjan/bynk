@@ -21,7 +21,6 @@ import {
   X,
   Check,
 } from 'lucide-react';
-import { PAYSTACK_FEE_PERCENT } from '@/lib/paystack';
 
 interface BookingCheckoutData {
   id: string;
@@ -110,10 +109,7 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
   // Apply discount calculation
   const discountDeduction = appliedDiscount ? appliedDiscount.discountAmountGhs : 0;
   const discountedSubtotal = Math.max(0, baseChargeAmount - discountDeduction);
-
-  // Paystack processing fee (+1.95%)
-  const paystackFee = Math.round(discountedSubtotal * (PAYSTACK_FEE_PERCENT / 100));
-  const finalTotalGhs = discountedSubtotal + paystackFee;
+  const payableTotalGhs = discountedSubtotal;
 
   const handleApplyDiscount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -409,12 +405,6 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
                     </div>
                   </div>
                 )}
-
-                {/* Processing fee */}
-                <div className="flex justify-between text-foreground/50 text-[11px] pt-1">
-                  <span>Processing Fee (Paystack 1.95%):</span>
-                  <span>+ GHS {paystackFee.toLocaleString()}</span>
-                </div>
               </div>
 
               {/* Total Due Pill */}
@@ -423,10 +413,10 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
                   Total Payable Now
                 </span>
                 <div className="text-2xl sm:text-3xl font-bold text-foreground font-mono">
-                  GHS {finalTotalGhs.toLocaleString()}
+                  GHS {payableTotalGhs.toLocaleString()}
                 </div>
                 <span className="text-[9px] text-foreground/40 block font-sans">
-                  Includes secure checkout via Paystack · All payment charges factored.
+                  Encrypted Checkout · Mobile Money, Ghana Cards &amp; Apple Pay.
                 </span>
               </div>
 
@@ -480,12 +470,12 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
                   {paying ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Connecting to Paystack...</span>
+                      <span>Preparing checkout...</span>
                     </>
                   ) : (
                     <>
                       <Lock className="w-3.5 h-3.5" />
-                      <span>Pay GHS {finalTotalGhs.toLocaleString()} via Paystack</span>
+                      <span>Pay GHS {payableTotalGhs.toLocaleString()}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
