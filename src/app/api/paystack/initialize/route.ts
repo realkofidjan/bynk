@@ -30,12 +30,20 @@ export async function POST(request: NextRequest) {
     // Verify booking exists in Supabase
     const { data: booking, error: fetchErr } = await supabase
       .from('bookings')
-      .select('id, total_price, add_ons')
+      .select('id, total_price, add_ons, status')
       .eq('id', bookingId)
       .single();
 
     if (fetchErr || !booking) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    // Prevent duplicate payments on already-confirmed bookings
+    if (booking.status === 'confirmed') {
+      return NextResponse.json(
+        { error: 'This booking has already been paid and confirmed. No further payment is required.' },
+        { status: 409 }
+      );
     }
 
     // Determine callback URL accurately using host & x-forwarded headers
@@ -91,7 +99,7 @@ export async function POST(request: NextRequest) {
       clientName: name,
       amountInGhs: totalPrice,
       exactAmountInGhs: chargeAmount,
-      bookingId: `${bookingId}_${paymentType}`,
+      bookingId,
       callbackUrl,
       metadata: {
         booking_id: bookingId,

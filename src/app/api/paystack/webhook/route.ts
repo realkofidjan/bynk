@@ -36,32 +36,57 @@ export async function POST(request: NextRequest) {
       const supabase = createServerSupabase();
 
       let updatedBooking = null;
+      let wasAlreadyConfirmed = false;
 
       if (bookingId) {
-        const { data: b } = await supabase
+        // Check current status first to avoid double-processing
+        const { data: existing } = await supabase
           .from('bookings')
-          .update({
-            status: 'confirmed',
-            paystack_reference: reference,
-          })
+          .select('id, status')
           .eq('id', bookingId)
-          .select('*')
-          .single();
-        updatedBooking = b;
+          .maybeSingle();
+
+        if (existing?.status === 'confirmed') {
+          wasAlreadyConfirmed = true;
+          updatedBooking = existing;
+        } else {
+          const { data: b } = await supabase
+            .from('bookings')
+            .update({
+              status: 'confirmed',
+              paystack_reference: reference,
+            })
+            .eq('id', bookingId)
+            .select('*')
+            .single();
+          updatedBooking = b;
+        }
       } else if (reference) {
-        const { data: b } = await supabase
+        const { data: existing } = await supabase
           .from('bookings')
-          .update({
-            status: 'confirmed',
-          })
+          .select('id, status')
           .eq('paystack_reference', reference)
-          .select('*')
-          .single();
-        updatedBooking = b;
+          .maybeSingle();
+
+        if (existing?.status === 'confirmed') {
+          wasAlreadyConfirmed = true;
+          updatedBooking = existing;
+        } else {
+          const { data: b } = await supabase
+            .from('bookings')
+            .update({
+              status: 'confirmed',
+            })
+            .eq('paystack_reference', reference)
+            .select('*')
+            .single();
+          updatedBooking = b;
+        }
       }
 
-      // Auto-send confirmation email if booking found
-      if (updatedBooking && updatedBooking.email) {
+      // Only send confirmation email if the webhook actually transitioned the status
+      // (i.e. the verify route didn't already handle it)
+      if (!wasAlreadyConfirmed && updatedBooking && updatedBooking.email) {
         try {
           const { sendBookingConfirmationEmail } = await import('@/lib/email');
           const { calculateBookingFinancials, formatTimeLabel, getBookingStartTime, getBookingEndTime } = await import('@/lib/booking-types');

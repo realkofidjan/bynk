@@ -43,6 +43,7 @@ function SuccessContent() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [paymentType, setPaymentType] = useState<'deposit' | 'full' | 'balance'>('deposit');
 
   useEffect(() => {
     // Clear pending booking from localStorage upon payment success
@@ -70,6 +71,7 @@ function SuccessContent() {
           const verifyData = await verifyRes.json();
           if (verifyData.booking) {
             setBooking(verifyData.booking);
+            if (verifyData.paymentType) setPaymentType(verifyData.paymentType);
             return;
           }
         }
@@ -142,6 +144,10 @@ function SuccessContent() {
     total_price: booking?.total_price || 0,
     add_ons: booking?.add_ons || [],
   });
+
+  const isPaidInFull = paymentType === 'full';
+  const amountPaid = isPaidInFull ? (booking?.total_price || 0) : financials.depositPaid;
+  const remaining = isPaidInFull ? 0 : financials.remainingBalance;
 
   const googleCalUrl = booking ? createGoogleCalendarUrl(booking, true) : '';
 
@@ -259,16 +265,26 @@ function SuccessContent() {
               </div>
               <div className="flex justify-between text-emerald-400 font-medium">
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Deposit Paid (50% + Add-ons):
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {isPaidInFull ? 'Paid in Full:' : 'Deposit Paid (50% + Add-ons):'}
                 </span>
-                <span>GHS {financials.depositPaid.toLocaleString()}</span>
+                <span>GHS {amountPaid.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between text-foreground pt-2 border-t border-foreground/10 font-bold">
-                <span>Remaining Balance Due on Shoot Day:</span>
-                <span className={financials.remainingBalance > 0 ? 'text-amber-400' : 'text-emerald-400'}>
-                  GHS {financials.remainingBalance.toLocaleString()}
-                </span>
-              </div>
+              {remaining > 0 ? (
+                <div className="flex justify-between text-foreground pt-2 border-t border-foreground/10 font-bold">
+                  <span>Remaining Balance Due on Shoot Day:</span>
+                  <span className="text-amber-400">
+                    GHS {remaining.toLocaleString()}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-foreground pt-2 border-t border-foreground/10 font-bold">
+                  <span>Balance:</span>
+                  <span className="text-emerald-400">
+                    Fully Paid — GHS 0
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -338,7 +354,7 @@ function SuccessContent() {
 
 export default function PaymentSuccessPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground pt-28 sm:pt-32 pb-20 px-4 sm:px-8 selection:bg-foreground/20">
+    <main className="fixed inset-0 overflow-y-auto bg-background text-foreground pt-28 sm:pt-32 pb-20 px-4 sm:px-8 selection:bg-foreground/20">
       <Suspense
         fallback={
           <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">

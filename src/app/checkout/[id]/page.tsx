@@ -77,6 +77,7 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
   // Payment checkout state
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  const [alreadyPaid, setAlreadyPaid] = useState(false);
 
   useEffect(() => {
     async function loadCheckout() {
@@ -85,6 +86,11 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
         setError('');
         const res = await fetch(`/api/shoots/checkout?id=${bookingId}&type=${paymentTypeQuery}`);
         const result = await res.json();
+
+        if (result.alreadyPaid) {
+          setAlreadyPaid(true);
+          return;
+        }
 
         if (!res.ok || !result.booking) {
           throw new Error(result.error || 'Unable to load invoice and checkout information');
@@ -199,6 +205,28 @@ export default function ClientCheckoutPage({ params }: { params: Promise<{ id: s
         <div className="text-center space-y-3">
           <Loader2 className="w-6 h-6 animate-spin text-foreground/40 mx-auto" />
           <p className="text-xs uppercase tracking-[0.25em] text-foreground/40">Loading your bespoke invoice...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (alreadyPaid) {
+    return (
+      <div className="min-h-screen bg-[#070707] text-foreground flex items-center justify-center p-4 font-mono">
+        <div className="max-w-md w-full bg-[#0d0d0d] border border-foreground/15 p-8 space-y-5 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mx-auto">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <h1 className="text-xl font-serif tracking-tight">Payment Already Received</h1>
+          <p className="text-xs text-foreground/50 leading-relaxed">
+            This booking has already been paid and confirmed. No further payment is needed.
+          </p>
+          <Link
+            href={`/book/success?bookingId=${bookingId}`}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-[10px] uppercase tracking-[0.2em] font-medium hover:bg-foreground/90 transition-colors"
+          >
+            View Booking Confirmation <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </div>
     );

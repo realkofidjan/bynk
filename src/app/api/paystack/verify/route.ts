@@ -64,7 +64,13 @@ export async function GET(request: NextRequest) {
                 .single();
 
               await sendConfirmationEmailSafely(confirmedB || bFromMeta);
-              return NextResponse.json({ success: true, booking: confirmedB, verified: true });
+              return NextResponse.json({
+                success: true,
+                booking: confirmedB,
+                verified: true,
+                paymentType: verifyRes.metadata?.payment_type || 'deposit',
+                amountPaidGhs: verifyRes.amount,
+              });
             }
           }
         }
@@ -80,6 +86,7 @@ export async function GET(request: NextRequest) {
         booking,
         verified: true,
         alreadyConfirmed: true,
+        paymentType: 'deposit',
       });
     }
 
@@ -135,6 +142,8 @@ export async function GET(request: NextRequest) {
         success: true,
         booking: updatedBooking,
         verified: true,
+        paymentType: verifyResult.metadata?.payment_type || 'deposit',
+        amountPaidGhs: verifyResult.amount,
       });
     } else {
       return NextResponse.json({

@@ -32,6 +32,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Booking invoice not found' }, { status: 404 });
     }
 
+    // Prevent re-payment for already confirmed bookings
+    if (booking.status === 'confirmed') {
+      return NextResponse.json({
+        alreadyPaid: true,
+        booking: {
+          id: booking.id,
+          name: booking.name,
+          status: booking.status,
+          paystack_reference: booking.paystack_reference,
+        },
+      });
+    }
+
     const totalPrice = Number(booking.total_price) || 0;
     const addOns = booking.add_ons || [];
 
