@@ -42,6 +42,8 @@ import {
   ALL_ADDONS,
   getAddOnPrice,
   ADDON_PRICES,
+  SHOOT_TIME_PRESETS,
+  getDbSlotValue,
 } from '@/lib/booking-types';
 import {
   Select,
@@ -67,6 +69,8 @@ export default function BookingDetailPage() {
   const [editForm, setEditForm] = useState<Partial<Booking>>({});
   const [editShootName, setEditShootName] = useState('');
   const [editAddOns, setEditAddOns] = useState<string[]>([]);
+  const [editShootTime, setEditShootTime] = useState<string>('09:00');
+  const [isCustomShootTime, setIsCustomShootTime] = useState<boolean>(false);
   const [selectedAddOnToAdd, setSelectedAddOnToAdd] = useState<string>('');
   const [customAddOnName, setCustomAddOnName] = useState<string>('');
   const [customAddOnPrice, setCustomAddOnPrice] = useState<number>(0);
@@ -142,6 +146,13 @@ export default function BookingDetailPage() {
     setEditAddOns([...nonSystemAddOns]);
     setSelectedAddOnToAdd('');
     setShowCustomAddOnInput(false);
+
+    const currentStartTime = getBookingStartTime(booking);
+    const initialTime = booking.full_day || booking.slot === 'full_day' ? 'full_day' : currentStartTime;
+    setEditShootTime(initialTime);
+    const isPreset = SHOOT_TIME_PRESETS.some((p) => p.value === initialTime);
+    setIsCustomShootTime(!isPreset && initialTime !== 'full_day');
+
     setEditing(true);
     setSaveError('');
     setSaveSuccess(false);
@@ -161,6 +172,8 @@ export default function BookingDetailPage() {
     setEditForm({});
     setEditShootName('');
     setEditAddOns([]);
+    setEditShootTime('09:00');
+    setIsCustomShootTime(false);
     setSelectedAddOnToAdd('');
     setShowCustomAddOnInput(false);
     setSaveError('');
@@ -221,10 +234,14 @@ export default function BookingDetailPage() {
 
     try {
       const parsed = parseBookingTier(booking.tier);
+      const isFullDay = editShootTime === 'full_day';
+      const dbSlot = isFullDay ? 'full_day' : getDbSlotValue(editShootTime);
+      const timeSlotTrailer = isFullDay ? '' : `@ ${editShootTime}`;
+
       const dbTier = formatBookingDbTier({
         tier: editForm.tier || parsed.tier || 'Signature',
         shootName: editShootName,
-        timeSlotTrailer: parsed.timeSlotTrailer,
+        timeSlotTrailer,
         completedTrailer: parsed.completedTrailer,
       });
 
@@ -233,6 +250,8 @@ export default function BookingDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...editForm,
+          slot: dbSlot,
+          full_day: isFullDay,
           tier: dbTier,
           add_ons: editAddOns,
         }),
@@ -677,35 +696,66 @@ export default function BookingDetailPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[8px] uppercase tracking-wider text-foreground/40 mb-1">Time Slot</label>
-                      <Select
-                        value={editForm.slot || 'morning'}
-                        onValueChange={(val) =>
-                          setEditForm({
-                            ...editForm,
-                            slot: val,
-                            full_day: val === 'full_day',
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-full h-[35px] bg-foreground/[0.03] border border-foreground/20 focus:border-foreground px-3 py-2 text-foreground text-[11px] font-mono tracking-wide rounded-none focus:outline-none focus:ring-0 shadow-none">
-                          <SelectValue placeholder="Select Time Slot" />
-                        </SelectTrigger>
-                        <SelectContent className="border-foreground/20 bg-background rounded-none z-[350] font-mono text-[11px]">
-                          <SelectItem value="morning" className="rounded-none text-[11px] font-mono cursor-pointer">
-                            Morning (9:00 AM)
-                          </SelectItem>
-                          <SelectItem value="afternoon" className="rounded-none text-[11px] font-mono cursor-pointer">
-                            Afternoon (1:00 PM)
-                          </SelectItem>
-                          <SelectItem value="sunset" className="rounded-none text-[11px] font-mono cursor-pointer">
-                            Sunset (4:30 PM)
-                          </SelectItem>
-                          <SelectItem value="full_day" className="rounded-none text-[11px] font-mono cursor-pointer">
-                            Full Day Coverage
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[8px] uppercase tracking-wider text-foreground/40 font-mono">
+                          Shoot Time
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomShootTime(!isCustomShootTime)}
+                          className="text-[8px] uppercase tracking-wider text-foreground/50 hover:text-foreground underline cursor-pointer font-mono"
+                        >
+                          {isCustomShootTime ? 'Use Presets' : 'Custom Time'}
+                        </button>
+                      </div>
+
+                      {isCustomShootTime ? (
+                        <input
+                          type="time"
+                          value={editShootTime === 'full_day' ? '09:00' : editShootTime}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditShootTime(val);
+                            setEditForm({
+                              ...editForm,
+                              slot: getDbSlotValue(val),
+                              full_day: false,
+                            });
+                          }}
+                          className="w-full h-[35px] bg-foreground/[0.03] border border-foreground/20 focus:border-foreground px-3 py-1.5 text-foreground text-[11px] font-mono tracking-wide rounded-none focus:outline-none focus:ring-0 shadow-none cursor-pointer"
+                        />
+                      ) : (
+                        <Select
+                          value={editShootTime}
+                          onValueChange={(val) => {
+                            if (val === 'custom') {
+                              setIsCustomShootTime(true);
+                              return;
+                            }
+                            setEditShootTime(val);
+                            setEditForm({
+                              ...editForm,
+                              slot: val === 'full_day' ? 'full_day' : getDbSlotValue(val),
+                              full_day: val === 'full_day',
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-full h-[35px] bg-foreground/[0.03] border border-foreground/20 focus:border-foreground px-3 py-2 text-foreground text-[11px] font-mono tracking-wide rounded-none focus:outline-none focus:ring-0 shadow-none">
+                            <SelectValue placeholder="Select Shoot Time" />
+                          </SelectTrigger>
+                          <SelectContent className="border-foreground/20 bg-background rounded-none z-[350] font-mono text-[11px] max-h-[260px] overflow-y-auto">
+                            {SHOOT_TIME_PRESETS.map((preset) => (
+                              <SelectItem
+                                key={preset.value}
+                                value={preset.value}
+                                className="rounded-none text-[11px] font-mono cursor-pointer"
+                              >
+                                {preset.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
