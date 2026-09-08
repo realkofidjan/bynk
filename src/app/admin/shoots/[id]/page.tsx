@@ -346,22 +346,22 @@ export default function BookingDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to generate payment link');
 
-      const paystackUrl = data.authorizationUrl;
+      const checkoutUrl = data.checkoutUrl || data.authorizationUrl;
       const chargeAmount = data.chargeAmountGhs || booking.total_price;
 
-      if (paystackUrl) {
+      if (checkoutUrl) {
         let typeDesc = 'Remaining Balance';
         if (paymentType === 'full') typeDesc = 'Full Payment (100%)';
         else if (paymentType === 'deposit') typeDesc = '50% Deposit';
 
-        const waText = `Hi ${booking.name}, here is your ${typeDesc} link for your photography shoot on ${booking.date} (${booking.tier}).\n\nAmount Due: GHS ${chargeAmount.toLocaleString()} (+ 1.95% payment processing fee)\nPay securely via Paystack:\n${paystackUrl}\n\nThank you — BYNK Photography`;
+        const waText = `Hi ${booking.name}, here is your bespoke invoice & checkout link for your photography shoot on ${booking.date} (${booking.tier}).\n\nView deliverables, apply discount codes & pay securely:\n${checkoutUrl}\n\nThank you — BYNK Photography`;
 
         window.open(
           `https://wa.me/${booking.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waText)}`,
           '_blank'
         );
 
-        setPaymentLinkResult({ msg: `${typeDesc} link generated & sent via WhatsApp!`, type: 'success', url: paystackUrl });
+        setPaymentLinkResult({ msg: `Bespoke invoice & checkout link (${typeDesc}) opened in WhatsApp!`, type: 'success', url: checkoutUrl });
       }
     } catch (err: any) {
       setPaymentLinkResult({ msg: err.message, type: 'error' });

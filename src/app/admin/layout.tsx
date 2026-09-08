@@ -7,6 +7,7 @@ import {
   Camera,
   Upload,
   Calendar,
+  Tag,
   LogOut,
   ChevronLeft,
   Menu,
@@ -16,6 +17,7 @@ import { useState } from 'react';
 
 const adminNavItems = [
   { label: 'Shoots', href: '/admin/shoots', icon: Camera, description: 'Manage bookings & orders' },
+  { label: 'Discounts', href: '/admin/discounts', icon: Tag, description: 'Promo & discount codes' },
   { label: 'Upload', href: '/admin/upload', icon: Upload, description: 'Gallery management' },
   { label: 'Schedule', href: '/admin/schedule', icon: Calendar, description: 'Calendar & sync' },
 ];

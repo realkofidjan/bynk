@@ -260,7 +260,7 @@ export function SendShootEmailModal({
                 </button>
               </div>
               <p className="text-[10px] text-foreground/50 font-mono">
-                Generates a fresh Paystack checkout link (+1.95% fee borne by client) and emails a branded payment reminder with shoot details.
+                Generates a bespoke invoice &amp; checkout link where the client can review deliverables, enter discount codes, and pay securely via Paystack.
               </p>
             </div>
           )}

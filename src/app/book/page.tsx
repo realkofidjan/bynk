@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ArrowRight, Camera, Heart, Sparkles, Building, MapPin, X, CheckCircle2, Calendar, Download, ExternalLink, ChevronLeft, ChevronRight, Clock, Tag as TagIcon, Loader2 } from 'lucide-react';
 import { TagsSelector, type Tag } from '@/components/ui/tags-selector';
 import { ChronoSelect } from '@/components/ui/chrono-select';
 import {
@@ -628,7 +628,53 @@ function BookingFormLightbox({
   const baseDepositGhs = Math.round(basePriceNum / 2);
   const depositGhs = baseDepositGhs + addOnsTotal;
   const remainingBalanceGhs = basePriceNum - baseDepositGhs;
-  const { grossGhs: grossDepositGhs, feeGhs: depositFeeGhs } = calculateGrossAmountInPesewas(depositGhs);
+
+  // Discount state in booking flow
+  const [discountCodeInput, setDiscountCodeInput] = useState('');
+  const [validatingDiscount, setValidatingDiscount] = useState(false);
+  const [discountError, setDiscountError] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    discountType: 'percentage' | 'fixed';
+    discountValue: number;
+    discountAmountGhs: number;
+  } | null>(null);
+
+  const discountDeduction = appliedDiscount ? appliedDiscount.discountAmountGhs : 0;
+  const discountedDepositGhs = Math.max(1, depositGhs - discountDeduction);
+  const { grossGhs: grossDepositGhs, feeGhs: depositFeeGhs } = calculateGrossAmountInPesewas(discountedDepositGhs);
+
+  const handleApplyDiscount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!discountCodeInput.trim()) return;
+    try {
+      setValidatingDiscount(true);
+      setDiscountError('');
+      const res = await fetch('/api/discounts/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: discountCodeInput.trim().toUpperCase(),
+          amount: depositGhs,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        throw new Error(data.error || 'Invalid discount code');
+      }
+      setAppliedDiscount({
+        code: data.code,
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        discountAmountGhs: data.discountAmountGhs,
+      });
+      setDiscountCodeInput('');
+    } catch (err: any) {
+      setDiscountError(err.message || 'Error applying code');
+    } finally {
+      setValidatingDiscount(false);
+    }
+  };
 
   const toggleAddOn = (id: string) => {
     setSelectedAddOnIds((prev) =>
@@ -752,7 +798,7 @@ function BookingFormLightbox({
         return;
       }
 
-      // 2. Initialize Paystack payment for deposit (50% base + 100% add-ons)
+      // 2. Initialize Paystack payment for deposit (50% base + 100% add-ons, minus any discount)
       const paystackRes = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -763,6 +809,8 @@ function BookingFormLightbox({
           basePriceGhs: basePriceNum,
           addOnsGhs: addOnsTotal,
           depositAmount: depositGhs,
+          exactAmountGhs: discountedDepositGhs,
+          discountCode: appliedDiscount?.code,
           category: categoryLabel,
           tier: tierName,
           name,
@@ -903,6 +951,27 @@ function BookingFormLightbox({
                       GHS {depositGhs.toLocaleString()}
                     </span>
                   </div>
+                  {/* Applied Discount Line */}
+                  {appliedDiscount && (
+                    <div className="flex items-center justify-between text-emerald-400 bg-emerald-500/10 p-2 border border-emerald-500/20 text-[10px] font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <TagIcon className="w-3 h-3" />
+                        <span className="font-bold">{appliedDiscount.code}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span>- GHS {appliedDiscount.discountAmountGhs.toLocaleString()}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAppliedDiscount(null)}
+                          className="text-foreground/40 hover:text-red-400 p-0.5"
+                          title="Remove code"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-baseline justify-between text-[9px] font-mono text-foreground/50">
                     <span>Payment Processing Fee (1.95%):</span>
                     <span>+ GHS {depositFeeGhs.toFixed(2)}</span>
@@ -915,6 +984,32 @@ function BookingFormLightbox({
                     <span>Balance on Shoot Date:</span>
                     <span>GHS {remainingBalanceGhs.toLocaleString()}</span>
                   </div>
+
+                  {/* Promo Code Input */}
+                  {!appliedDiscount && (
+                    <div className="pt-2 border-t border-foreground/10">
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          placeholder="PROMO CODE"
+                          value={discountCodeInput}
+                          onChange={(e) => setDiscountCodeInput(e.target.value.toUpperCase())}
+                          className="flex-1 h-[28px] bg-foreground/[0.03] border border-foreground/20 px-2 text-[10px] uppercase font-bold text-foreground tracking-widest focus:outline-none focus:border-foreground rounded-none font-mono"
+                        />
+                        <button
+                          type="button"
+                          disabled={validatingDiscount || !discountCodeInput.trim()}
+                          onClick={handleApplyDiscount}
+                          className="px-2.5 h-[28px] bg-foreground/10 hover:bg-foreground/20 text-foreground border border-foreground/20 text-[9px] uppercase tracking-wider font-semibold transition-colors disabled:opacity-50 cursor-pointer font-mono"
+                        >
+                          {validatingDiscount ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
+                        </button>
+                      </div>
+                      {discountError && (
+                        <p className="text-[9px] text-red-400 pt-1 font-mono">{discountError}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

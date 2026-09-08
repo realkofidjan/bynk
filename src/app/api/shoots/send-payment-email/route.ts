@@ -57,27 +57,7 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
     const proto = request.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
     const origin = `${proto}://${host}`;
-    const callbackUrl = `${origin}/book?status=payment_complete&bookingId=${bookingId}`;
-
-    // Initialize Paystack transaction for the exact selected amount (with fee incurred by client)
-    const paystackResult = await initializePaystackTransaction({
-      email: booking.email,
-      clientName: booking.name,
-      amountInGhs: totalPrice,
-      exactAmountInGhs: chargeAmountGhs,
-      bookingId: `${booking.id}_${paymentType}`,
-      callbackUrl,
-      metadata: {
-        booking_id: booking.id,
-        category: booking.category,
-        tier: booking.tier,
-        payment_type: paymentType,
-      },
-    });
-
-    if (!paystackResult.success || !paystackResult.authorizationUrl) {
-      return NextResponse.json({ error: paystackResult.error || 'Failed to generate Paystack link' }, { status: 500 });
-    }
+    const checkoutUrl = `${origin}/checkout/${bookingId}?type=${paymentType}`;
 
     const [y, m, d] = (booking.date || '').split('-').map(Number);
     const formattedShootDate = booking.date ? new Date(y, m - 1, d).toDateString() : '';
@@ -98,7 +78,7 @@ export async function POST(request: NextRequest) {
         shootDate: formattedShootDate,
         timeSlotLabel,
         remainingBalanceGhs: chargeAmountGhs,
-        paystackAuthorizationUrl: paystackResult.authorizationUrl,
+        paystackAuthorizationUrl: checkoutUrl,
       });
 
       emailSent = emailResult.success;
@@ -110,10 +90,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `${paymentTypeLabel} link generated for ${booking.name}`,
-      authorizationUrl: paystackResult.authorizationUrl,
+      authorizationUrl: checkoutUrl,
+      checkoutUrl,
       chargeAmountGhs,
-      grossGhs: paystackResult.grossGhs,
-      feeGhs: paystackResult.feeGhs,
       paymentType,
       paymentTypeLabel,
       booking,

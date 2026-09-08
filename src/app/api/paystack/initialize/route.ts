@@ -5,7 +5,21 @@ import { initializePaystackTransaction } from '@/lib/paystack';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { bookingId, email, totalPrice, basePriceGhs, addOnsGhs, depositAmount, category, tier, name, phone } = body;
+    const {
+      bookingId,
+      email,
+      totalPrice,
+      basePriceGhs,
+      addOnsGhs,
+      depositAmount,
+      exactAmountGhs,
+      category,
+      tier,
+      name,
+      phone,
+      discountCode,
+      paymentType = 'deposit',
+    } = body;
 
     if (!bookingId || !email || !totalPrice) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -16,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Verify booking exists in Supabase
     const { data: booking, error: fetchErr } = await supabase
       .from('bookings')
-      .select('id, total_price')
+      .select('id, total_price, add_ons')
       .eq('id', bookingId)
       .single();
 
@@ -32,21 +46,63 @@ export async function POST(request: NextRequest) {
 
     const base = basePriceGhs || totalPrice;
     const addOns = addOnsGhs || 0;
-    const depositGhs = depositAmount || (Math.round(base / 2) + addOns);
+    let chargeAmount = exactAmountGhs || depositAmount || (Math.round(base / 2) + addOns);
 
-    // Initialize transaction with Paystack for 50% base + 100% add-ons
+    // Validate discount code if provided
+    let verifiedDiscountCode: string | null = null;
+    let appliedDiscountAmount = 0;
+
+    if (discountCode && typeof discountCode === 'string' && discountCode.trim()) {
+      const cleanCode = discountCode.trim().toUpperCase();
+      const { data: discount } = await supabase
+        .from('discount_codes')
+        .select('*')
+        .eq('code', cleanCode)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (discount) {
+        const notExpired = !discount.expires_at || new Date(discount.expires_at).getTime() >= Date.now();
+        const underLimit = discount.max_uses === null || discount.used_count < discount.max_uses;
+        const meetsMinSpend = !discount.min_spend || chargeAmount >= Number(discount.min_spend);
+
+        if (notExpired && underLimit && meetsMinSpend) {
+          verifiedDiscountCode = cleanCode;
+          if (discount.discount_type === 'percentage') {
+            appliedDiscountAmount = Math.round((chargeAmount * Number(discount.discount_value)) / 100);
+          } else {
+            appliedDiscountAmount = Math.min(chargeAmount, Number(discount.discount_value));
+          }
+
+          // Apply discount to charge amount (at least 1 GHS for Paystack)
+          chargeAmount = Math.max(1, chargeAmount - appliedDiscountAmount);
+
+          // Increment used_count
+          await supabase
+            .from('discount_codes')
+            .update({ used_count: (discount.used_count || 0) + 1 })
+            .eq('id', discount.id);
+        }
+      }
+    }
+
+    // Initialize transaction with Paystack for the calculated amount (with 1.95% fee borne by client)
     const result = await initializePaystackTransaction({
       email,
       clientName: name,
       amountInGhs: totalPrice,
-      exactAmountInGhs: depositGhs,
-      bookingId,
+      exactAmountInGhs: chargeAmount,
+      bookingId: `${bookingId}_${paymentType}`,
       callbackUrl,
       metadata: {
+        booking_id: bookingId,
         category,
         tier,
         name,
         phone,
+        payment_type: paymentType,
+        discount_code: verifiedDiscountCode || undefined,
+        discount_amount: appliedDiscountAmount || undefined,
       },
     });
 
@@ -54,11 +110,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error || 'Paystack initialization failed' }, { status: 500 });
     }
 
-    // Update booking with generated paystack reference
+    // Update booking with generated paystack reference and discount metadata if applied
+    const updateData: Record<string, any> = {};
     if (result.reference) {
+      updateData.paystack_reference = result.reference;
+    }
+    if (verifiedDiscountCode) {
+      updateData.discount_code = verifiedDiscountCode;
+      updateData.discount_amount = appliedDiscountAmount;
+    }
+
+    if (Object.keys(updateData).length > 0) {
       await supabase
         .from('bookings')
-        .update({ paystack_reference: result.reference })
+        .update(updateData)
         .eq('id', bookingId);
     }
 
@@ -66,7 +131,11 @@ export async function POST(request: NextRequest) {
       success: true,
       authorizationUrl: result.authorizationUrl,
       reference: result.reference,
-      depositGhs,
+      chargeAmountGhs: chargeAmount,
+      grossGhs: result.grossGhs,
+      feeGhs: result.feeGhs,
+      discountCode: verifiedDiscountCode,
+      discountAmountGhs: appliedDiscountAmount,
     });
   } catch (err: any) {
     console.error('Paystack initialize route error:', err);

@@ -18,6 +18,8 @@ export type Booking = {
   add_ons: string[]; // array of add-on IDs
   total_price: number;
   deposit_amount?: number;
+  discount_code?: string;
+  discount_amount?: number;
   paystack_reference?: string;
   status: BookingStatus;
   full_day: boolean;
@@ -25,6 +27,32 @@ export type Booking = {
   end_time?: string; // e.g. "10:30"
   notes?: string;
   created_at: string;
+};
+
+export type DiscountType = 'percentage' | 'fixed';
+
+export type DiscountCode = {
+  id: string;
+  code: string;
+  description?: string;
+  discount_type: DiscountType;
+  discount_value: number;
+  min_spend: number;
+  max_uses?: number | null;
+  used_count: number;
+  expires_at?: string | null;
+  is_active: boolean;
+  created_at?: string;
+};
+
+export type DiscountValidationResult = {
+  valid: boolean;
+  error?: string;
+  discountCode?: string;
+  discountType?: DiscountType;
+  discountValue?: number;
+  discountAmountGhs?: number;
+  discountedTotalGhs?: number;
 };
 
 export type SlotAvailability = 'available' | 'booked';
@@ -645,5 +673,159 @@ export function calculateAvailableTimeSlots(
   }
 
   return validSlots;
+}
+
+/**
+ * Return curated deliverable checklist for any given category and package tier.
+ */
+export function getPackageDeliverables(categoryId?: string, tierName?: string): string[] {
+  const catId = (categoryId || '').toLowerCase();
+  const tier = (tierName || '').toLowerCase();
+
+  // Studio Portraits
+  if (catId.includes('portrait') && !catId.includes('location')) {
+    if (tier.includes('platinum')) {
+      return [
+        'Individual, couple or family session (Up to 3 hours)',
+        '3 outfits included',
+        'Multiple lighting setups & backdrop variations',
+        'Creative director & guided posing',
+        '30 edited · 15 high-end retouched images',
+        'Private online gallery with full-resolution downloads',
+        'Priority 48-hour delivery of 5 preview selects',
+      ];
+    }
+    if (tier.includes('lux')) {
+      return [
+        'Individual, couple or small-group session (Up to 2 hours)',
+        '2 outfits included',
+        'Creative lighting variations & backdrops',
+        'Creative director & guided posing',
+        '20 edited · 10 high-end retouched images',
+        'Private online gallery with full-resolution downloads',
+        '5 preview images within 48 hours',
+      ];
+    }
+    // Signature default
+    return [
+      'Individual portrait session (Up to 1 hour)',
+      '1 outfit included',
+      'Professional studio setup & solid backdrop',
+      'Creative director & guided posing',
+      '10 edited · 5 high-end retouched images',
+      'Private online gallery with full-resolution downloads',
+    ];
+  }
+
+  // Location Portraits
+  if (catId.includes('location')) {
+    if (tier.includes('platinum')) {
+      return [
+        'Up to 2.5 hours outdoor / location session',
+        'Up to 3 outfits & multiple location spots',
+        'Creative director & natural/diffused lighting assistance',
+        '30 edited · 15 high-end retouched images',
+        'Private online gallery with high-resolution delivery',
+        '5 priority preview selects within 48 hours',
+      ];
+    }
+    if (tier.includes('lux')) {
+      return [
+        'Up to 1.5 hours outdoor / on-location session',
+        '2 outfits included',
+        'Creative director & guided natural posing',
+        '20 edited · 10 high-end retouched images',
+        'Private online gallery with high-resolution delivery',
+      ];
+    }
+    return [
+      'Up to 1 hour outdoor / on-location session',
+      '1 outfit included',
+      'Creative director & guided natural posing',
+      '10 edited · 5 high-end retouched images',
+      'Private online gallery with high-resolution delivery',
+    ];
+  }
+
+  // Events
+  if (catId.includes('event')) {
+    if (tier.includes('platinum')) {
+      return [
+        'Full Day Coverage (Up to 8 hours)',
+        'Lead photographer + assistant',
+        'Full event documentary & guest portraits',
+        '500+ color-corrected edited photos',
+        '50 priority retouched selects',
+        'High-resolution digital delivery via private gallery',
+        '24-hour sneak peek gallery for press & social media',
+      ];
+    }
+    if (tier.includes('lux')) {
+      return [
+        'Up to 6 hours continuous event coverage',
+        'Lead photographer',
+        'Key moments, guest interactions & candid captures',
+        '350+ color-corrected edited photos',
+        '35 priority retouched selects',
+        'Private online gallery with full-resolution download',
+      ];
+    }
+    return [
+      'Half Day Coverage (Up to 4 hours)',
+      'Lead photographer',
+      'Ceremony, speeches & highlights coverage',
+      '250+ color-corrected edited photos',
+      '20 priority retouched selects',
+      'Private online gallery with full-resolution download',
+    ];
+  }
+
+  // Real Estate / Commercial
+  if (catId.includes('estate') || catId.includes('real')) {
+    if (tier.includes('platinum')) {
+      return [
+        'Up to 4 hours comprehensive property coverage',
+        'Interior, exterior & aerial architectural angles',
+        '40+ high-dynamic-range processed photos',
+        'Virtual tour preparation & print-ready marketing files',
+        'Same-day express turnaround',
+      ];
+    }
+    if (tier.includes('lux')) {
+      return [
+        'Up to 2.5 hours property coverage',
+        'Interior & exterior architectural composition',
+        '25 high-dynamic-range processed photos',
+        'Digital delivery within 48 hours',
+      ];
+    }
+    return [
+      'Up to 1.5 hours property coverage',
+      'Interior & key exterior angles',
+      '15 high-dynamic-range processed photos',
+      'Digital delivery within 48 hours',
+    ];
+  }
+
+  // Weddings
+  if (catId.includes('wedding')) {
+    return [
+      'Full Day Coverage (Prep through Reception)',
+      'Lead photographer + second photographer',
+      'Bride & Groom prep, ceremony, bridal party & reception',
+      'Full documentary storytelling & formal portraits',
+      '500+ signature edited photos & 50 retouched portraits',
+      'Online gallery with full rights and download',
+      'Complimentary consultation & timeline planning',
+    ];
+  }
+
+  // Custom / Fallback
+  return [
+    'Bespoke photography session tailored to your requirements',
+    'Professional equipment & dedicated creative direction',
+    'Curated color grading & high-resolution digital delivery',
+    'Private online gallery with download access',
+  ];
 }
 

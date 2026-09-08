@@ -79,30 +79,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const callbackUrl = `${origin}/book?status=payment_complete&bookingId=${bookingId}`;
-
-      // Initialize Paystack transaction with fee incurred by client
-      const paystackResult = await initializePaystackTransaction({
-        email: booking.email,
-        clientName: booking.name,
-        amountInGhs: Number(booking.total_price) || chargeAmountGhs,
-        exactAmountInGhs: chargeAmountGhs,
-        bookingId: `${booking.id}_manual_${paymentType}`,
-        callbackUrl,
-        metadata: {
-          booking_id: booking.id,
-          category: booking.category,
-          tier: booking.tier,
-          payment_type: paymentType,
-        },
-      });
-
-      if (!paystackResult.success || !paystackResult.authorizationUrl) {
-        return NextResponse.json(
-          { error: paystackResult.error || 'Failed to generate Paystack payment link' },
-          { status: 500 }
-        );
-      }
+      const checkoutUrl = `${origin}/checkout/${bookingId}?type=${paymentType}`;
 
       const emailResult = await sendBalancePaymentEmail({
         toEmail: booking.email,
@@ -112,14 +89,14 @@ export async function POST(request: NextRequest) {
         shootDate: formattedShootDate,
         timeSlotLabel,
         remainingBalanceGhs: chargeAmountGhs,
-        paystackAuthorizationUrl: paystackResult.authorizationUrl,
+        paystackAuthorizationUrl: checkoutUrl,
       });
 
       if (!emailResult.success) {
         return NextResponse.json(
           {
             error: emailResult.error || 'Failed to deliver email through provider',
-            authorizationUrl: paystackResult.authorizationUrl,
+            authorizationUrl: checkoutUrl,
           },
           { status: 500 }
         );
@@ -127,9 +104,9 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: `${paymentTypeLabel} email sent to ${booking.email} with Paystack payment link!`,
+        message: `${paymentTypeLabel} email sent to ${booking.email} with bespoke checkout link!`,
         provider: emailResult.provider,
-        authorizationUrl: paystackResult.authorizationUrl,
+        authorizationUrl: checkoutUrl,
         chargeAmountGhs,
       });
     }
